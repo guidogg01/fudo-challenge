@@ -691,6 +691,22 @@
           "name": "El producto todavía no existe",
           "event": [
             {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// El producto más nuevo siempre está en la última página (orden por id), así el test",
+                  "// sigue valiendo aunque el usuario ya tenga más de 100 productos de corridas anteriores.",
+                  "pm.sendRequest({",
+                  "  url: pm.environment.get('base_url') + '/products?per_page=100',",
+                  "  header: { Authorization: 'Bearer ' + pm.environment.get('token') }",
+                  "}, (error, response) => {",
+                  "  pm.variables.set('last_page', Math.max(response.json().meta.total_pages, 1));",
+                  "});"
+                ]
+              }
+            },
+            {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
@@ -708,7 +724,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/products?per_page=100",
+              "raw": "{{base_url}}/products?per_page=100&page={{last_page}}",
               "host": [
                 "{{base_url}}"
               ],
@@ -719,10 +735,14 @@
                 {
                   "key": "per_page",
                   "value": "100"
+                },
+                {
+                  "key": "page",
+                  "value": "{{last_page}}"
                 }
               ]
             },
-            "description": "Justo después del 202, el producto no aparece en la lista."
+            "description": "Justo después del 202, el producto no aparece en la lista. Consulta la última página, donde siempre queda el producto más nuevo."
           },
           "response": []
         },
@@ -1020,6 +1040,22 @@
           "name": "Listar mis productos",
           "event": [
             {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// El producto más nuevo siempre está en la última página (orden por id), así el test",
+                  "// sigue valiendo aunque el usuario ya tenga más de 100 productos de corridas anteriores.",
+                  "pm.sendRequest({",
+                  "  url: pm.environment.get('base_url') + '/products?per_page=100',",
+                  "  header: { Authorization: 'Bearer ' + pm.environment.get('token') }",
+                  "}, (error, response) => {",
+                  "  pm.variables.set('last_page', Math.max(response.json().meta.total_pages, 1));",
+                  "});"
+                ]
+              }
+            },
+            {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
@@ -1038,7 +1074,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/products?page=1&per_page=100",
+              "raw": "{{base_url}}/products?per_page=100&page={{last_page}}",
               "host": [
                 "{{base_url}}"
               ],
@@ -1047,16 +1083,16 @@
               ],
               "query": [
                 {
-                  "key": "page",
-                  "value": "1"
-                },
-                {
                   "key": "per_page",
                   "value": "100"
+                },
+                {
+                  "key": "page",
+                  "value": "{{last_page}}"
                 }
               ]
             },
-            "description": "Solo los productos ya creados del usuario autenticado, paginados y ordenados por id."
+            "description": "Solo los productos ya creados del usuario autenticado, paginados y ordenados por id. Consulta la última página, donde siempre queda el producto más nuevo."
           },
           "response": []
         },
