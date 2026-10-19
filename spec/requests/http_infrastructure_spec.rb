@@ -60,7 +60,7 @@ RSpec.describe "HTTP infrastructure", type: :request do
       expect(json_body.dig("error", "code")).to eq("method_not_allowed")
     end
 
-    it "responds 401 on a private route, since no token check exists yet" do
+    it "responds 401 on a private route without a token" do
       get "/private"
 
       expect(last_response.status).to eq(401)
@@ -95,6 +95,27 @@ RSpec.describe "HTTP infrastructure", type: :request do
 
       expect(last_response.status).to eq(400)
       expect(json_body.dig("error", "message")).to eq("El cuerpo del request debe ser un objeto JSON.")
+    end
+
+    it "responds 400 when the body is not valid UTF-8" do
+      post_json "/things", "{\"name\":\"\xFF\"}".b
+
+      expect(last_response.status).to eq(400)
+      expect(json_body.dig("error", "code")).to eq("invalid_json")
+    end
+
+    it "responds 400 when a string contains a NUL character" do
+      post_json "/things", '{"name":"Me\u0000sa"}'
+
+      expect(last_response.status).to eq(400)
+      expect(json_body.dig("error", "message")).to eq("El cuerpo del request no puede contener el carácter nulo.")
+    end
+
+    it "responds 400 when the JSON is nested too deeply" do
+      post_json "/things", "{\"a\":#{'[' * 1000}#{']' * 1000}}"
+
+      expect(last_response.status).to eq(400)
+      expect(json_body.dig("error", "code")).to eq("invalid_json")
     end
   end
 
