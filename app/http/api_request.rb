@@ -1,9 +1,6 @@
 # frozen_string_literal: true
 
-# The request object handlers receive. Rack::Request already reads the
-# method, path, headers and body from the env; this adds what the router
-# works out for the handler. Values live in the env, so the middlewares
-# (for example RequestLogger) can read them too.
+# Values live in the env so that middlewares such as RequestLogger can read them too.
 class ApiRequest < Rack::Request
   PATH_PARAMS_KEY = "app.path_params"
   JSON_BODY_KEY = "app.json_body"
@@ -34,7 +31,6 @@ class ApiRequest < Rack::Request
     set_header(CURRENT_USER_KEY, user)
   end
 
-  # The token that authenticated this request (POST /auth/logout revokes it).
   def auth_token
     get_header(AUTH_TOKEN_KEY)
   end

@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-# POST /auth/login. Checks the shape of the input (422 with one detail per
-# field) and leaves the credentials check to Login.
 class LoginHandler
   MESSAGES = {
     "username" => {

@@ -3,7 +3,7 @@
 require "digest"
 
 # Only the SHA-256 of a token is stored, never the token itself
-# (see DECISIONS.md, decision 8).
+# (decision 8).
 class AuthToken < Sequel::Model
   many_to_one :user
 
@@ -11,7 +11,6 @@ class AuthToken < Sequel::Model
     Digest::SHA256.hexdigest(token)
   end
 
-  # The token that exists, has not expired and has not been revoked; nil otherwise.
   def self.find_active(token)
     where(token_digest: digest(token), revoked_at: nil).where(Sequel[:expires_at] > Time.now).first
   end

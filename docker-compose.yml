@@ -1,7 +1,5 @@
 name: fudo-challenge
 
-# Settings shared by the web app and the worker: same image, same code,
-# same environment.
 x-ruby-service: &ruby-service
   build: .
   environment:
@@ -86,7 +84,6 @@ services:
     image: swaggerapi/swagger-ui:v5.33.3
     environment:
       SWAGGER_JSON: /docs/openapi.yaml
-      # Adds a search box that filters this API's operations by tag.
       FILTER: "true"
     ports:
       - "8081:8080"

@@ -1,9 +1,8 @@
 # frozen_string_literal: true
 
-# Errors the API reports to the client. Code anywhere in the app raises one
-# of these, and ErrorHandler is the only place that turns it into an HTTP
-# response (see DECISIONS.md, decision 20). `code` is a stable identifier in
-# English; `message` is Spanish text for people (decision 21).
+# ErrorHandler is the only place that turns these into HTTP responses
+# (decision 20). `code` is a stable English identifier; `message` is
+# Spanish text for people (decision 21).
 class ApiError < StandardError
   attr_reader :status, :code, :details, :headers
 
@@ -29,7 +28,7 @@ class ApiError < StandardError
 
   class InvalidCredentials < ApiError
     # The same answer whether the user does not exist or the password is wrong
-    # (see DECISIONS.md, decision 10).
+    # (decision 10).
     def initialize
       super(status: 401, code: "invalid_credentials", message: "Usuario o contraseña incorrectos.")
     end
@@ -42,7 +41,6 @@ class ApiError < StandardError
   end
 
   class MethodNotAllowed < ApiError
-    # The Allow header tells the client which methods the path does accept.
     def initialize(allowed_methods)
       super(
         status: 405,
@@ -60,7 +58,6 @@ class ApiError < StandardError
   end
 
   class ValidationFailed < ApiError
-    # details: one { field, issue, message } per invalid field.
     def initialize(details)
       super(status: 422, code: "validation_failed", message: "Los datos enviados no son válidos.", details: details)
     end

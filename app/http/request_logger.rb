@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
-# Writes one structured log line per request (see DECISIONS.md, decision 29).
-# Only the method and the path are logged: never headers or bodies, which can
-# carry passwords and tokens.
+# Never logs headers or bodies: they can carry passwords and tokens.
 class RequestLogger
   def initialize(app, logger:)
     @app = app

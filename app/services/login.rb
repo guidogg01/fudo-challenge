@@ -2,8 +2,6 @@
 
 require "securerandom"
 
-# Checks a username and password and, if they match, issues a new token
-# (see DECISIONS.md, decisions 7, 8 and 10).
 module Login
   TOKEN_TTL_SECONDS = Integer(ENV.fetch("TOKEN_TTL_SECONDS", 86_400))
 
@@ -13,8 +11,7 @@ module Login
 
   Result = Data.define(:token, :user, :expires_at)
 
-  # Returns a Result with the token in clear text, the only time it exists
-  # outside the client. Raises ApiError::InvalidCredentials otherwise.
+  # The only moment the token exists in clear text outside the client.
   def self.call(username, password)
     user = User.find_by_username(username)
     password_matches = BCrypt::Password.new(user&.password_digest || DUMMY_PASSWORD_DIGEST) == password

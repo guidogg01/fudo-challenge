@@ -3,9 +3,7 @@
 require "stringio"
 require "zlib"
 
-# Exercises the real middleware pipeline (Application.build) with routes
-# made up for the test, so routing, errors, JSON bodies, request ids, logs
-# and gzip are checked before any real endpoint depends on them.
+# Routes made up for the test, running through the real middleware pipeline.
 RSpec.describe "HTTP infrastructure", type: :request do
   let(:log_output) { StringIO.new }
   let(:echo_handler) do
@@ -21,7 +19,6 @@ RSpec.describe "HTTP infrastructure", type: :request do
     ]
   end
 
-  # Rack::Lint checks that the whole pipeline follows the Rack specification.
   def app
     @app ||= Rack::Lint.new(Application.build(routes, logger: Logger.new(log_output, formatter: JSON_LOG_FORMATTER)))
   end

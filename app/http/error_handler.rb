@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-# The only place that turns exceptions into HTTP responses, always with the
-# same body: { "error": { "code", "message", "details" } }
-# (see DECISIONS.md, decision 20).
 class ErrorHandler
   def initialize(app, logger:)
     @app = app

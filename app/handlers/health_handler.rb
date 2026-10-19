@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-# Reports whether the app can do its work: 200 when PostgreSQL and Redis
-# answer, 503 with the one that failed otherwise (see DECISIONS.md, decision 27).
 class HealthHandler
   def call(_request)
     checks = {
@@ -16,8 +14,7 @@ class HealthHandler
 
   private
 
-  # Any error means "not available": the health check must answer, not raise.
-  # The cause goes to the log, never to the response.
+  # A failing dependency is reported, never raised; the cause goes only to the log.
   def check(dependency)
     yield
     "ok"

@@ -2,10 +2,6 @@
 
 require "securerandom"
 
-# Gives every request an id that ties together its log lines and, later, the
-# job it enqueues (see DECISIONS.md, decision 29). A valid X-Request-Id from
-# the client is kept; otherwise a new UUID is generated. The id is always
-# returned in the response.
 class RequestId
   ENV_KEY = "app.request_id"
   # Limits what a client can put in our logs to a short, plain identifier.

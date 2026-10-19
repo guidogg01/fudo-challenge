@@ -16,7 +16,6 @@ require_relative "../config/boot"
 require "rack/builder"
 require "rack/test"
 
-# Request specs exercise the same Rack app that Puma serves, built from config.ru.
 module RackAppHelper
   include Rack::Test::Methods
 
@@ -32,10 +31,8 @@ end
 RSpec.configure do |config|
   config.include RackAppHelper, type: :request
 
-  # Every example runs inside a transaction that is rolled back at the end,
-  # so examples never see rows written by other examples. auto_savepoint
-  # turns the transactions opened inside an example into savepoints, so a
-  # failed insert does not break the rest of the example.
+  # Each example runs in a transaction that is always rolled back.
+  # auto_savepoint lets an example go on after a failed insert.
   config.around do |example|
     DB.transaction(rollback: :always, auto_savepoint: true) { example.run }
   end

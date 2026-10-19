@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
-# Hand-written router (see DECISIONS.md, decision 1). It finds the route for
-# the request and prepares what the handler needs: path parameters, the
-# authenticated user and the parsed JSON body.
+# Hand-written on purpose: the challenge forbids web frameworks (decision 1).
 class Router
   def initialize(routes)
     @routes = routes
@@ -21,8 +19,6 @@ class Router
 
   private
 
-  # 404 when no route has this path; 405 when the path exists but not with
-  # this method.
   def find_route(request)
     matches = @routes.filter_map do |route|
       path_params = route.match(request.path_info)
