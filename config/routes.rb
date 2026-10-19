@@ -4,5 +4,6 @@
 # (see DECISIONS.md, decision 9).
 ROUTES = [
   Route.new("POST", "/auth/login", LoginHandler.new, public: true, json_body: true),
+  Route.new("POST", "/auth/logout", LogoutHandler.new, public: false),
   Route.new("GET", "/health", HealthHandler.new, public: true)
 ].freeze
