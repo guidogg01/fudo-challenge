@@ -5,8 +5,8 @@
 class HealthHandler
   def call(_request)
     checks = {
-      database: check { DB.get(1) },
-      redis: check { Sidekiq.redis { |connection| connection.call("PING") } }
+      database: check(:database) { DB.get(1) },
+      redis: check(:redis) { Sidekiq.redis { |connection| connection.call("PING") } }
     }
     healthy = checks.values.all?("ok")
 
@@ -17,11 +17,12 @@ class HealthHandler
   private
 
   # Any error means "not available": the health check must answer, not raise.
-  # Logging the cause is added with the structured logger.
-  def check
+  # The cause goes to the log, never to the response.
+  def check(dependency)
     yield
     "ok"
-  rescue StandardError
+  rescue StandardError => e
+    LOGGER.warn(event: "health_check_failed", dependency: dependency, error_class: e.class.name)
     "error"
   end
 end
