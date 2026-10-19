@@ -1,0 +1,9 @@
+.env
+log/
+tmp/
+coverage/
+.bundle/
+vendor/bundle/
+*.gem
+.DS_Store
+Thumbs.db
