@@ -36,7 +36,7 @@ module ProductInput
   def self.validate!(body)
     attributes = normalize(body)
     issues = issues_in(attributes)
-    raise ApiError::ValidationFailed, details(issues) if issues.any?
+    raise ApiError::ValidationFailed.from_issues(issues, MESSAGES) if issues.any?
 
     attributes
   end
@@ -88,10 +88,6 @@ module ProductInput
     end
   end
 
-  def self.details(issues)
-    issues.map { |field, issue| { field: field, issue: issue, message: MESSAGES.fetch(field).fetch(issue) } }
-  end
-
   private_class_method :normalize, :issues_in, :normalize_name, :name_issue, :description_issue,
-                       :integer_issue, :details
+                       :integer_issue
 end

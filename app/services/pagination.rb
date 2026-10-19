@@ -24,7 +24,7 @@ module Pagination
     page = query.fetch("page", "1")
     per_page = query.fetch("per_page", DEFAULT_PER_PAGE.to_s)
     issues = { "page" => issue_for(page, max: nil), "per_page" => issue_for(per_page, max: MAX_PER_PAGE) }.compact
-    raise ApiError::ValidationFailed, details(issues) if issues.any?
+    raise ApiError::ValidationFailed.from_issues(issues, MESSAGES) if issues.any?
 
     Params.new(page: Integer(page, 10), per_page: Integer(per_page, 10))
   end
@@ -42,9 +42,5 @@ module Pagination
     "out_of_range" if number < 1 || (max && number > max)
   end
 
-  def self.details(issues)
-    issues.map { |field, issue| { field: field, issue: issue, message: MESSAGES.fetch(field).fetch(issue) } }
-  end
-
-  private_class_method :issue_for, :details
+  private_class_method :issue_for
 end
