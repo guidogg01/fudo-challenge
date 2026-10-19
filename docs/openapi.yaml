@@ -180,6 +180,7 @@ paths:
                     created_at: '2026-10-19T02:48:44Z'
                     updated_at: '2026-10-19T02:48:44Z'
                 meta: { page: 1, per_page: 20, total: 1, total_pages: 1 }
+        '400': { $ref: '#/components/responses/InvalidQuery' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
 
@@ -412,6 +413,7 @@ components:
               type: string
               enum:
                 - invalid_json
+                - invalid_query
                 - invalid_credentials
                 - unauthorized
                 - not_found
@@ -435,6 +437,13 @@ components:
                   message: { type: string, example: El nombre no puede superar los 100 caracteres. }
 
   responses:
+    InvalidQuery:
+      description: El query string está mal formado (por ejemplo, `?page=%`).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            error: { code: invalid_query, message: Los parámetros de la URL no son válidos., details: [] }
     InvalidJson:
       description: El cuerpo no es JSON válido.
       content:

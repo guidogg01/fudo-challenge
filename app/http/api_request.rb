@@ -15,6 +15,18 @@ class ApiRequest < Rack::Request
     set_header(PATH_PARAMS_KEY, params)
   end
 
+  # Rack lanza estas excepciones con un query string mal formado (por ejemplo "?page=%");
+  # sin traducirlas terminarían en un 500.
+  QUERY_ERRORS = [
+    Rack::QueryParser::ParameterTypeError, Rack::QueryParser::InvalidParameterError, Rack::QueryParser::QueryLimitError
+  ].freeze
+
+  def query_params
+    self.GET
+  rescue *QUERY_ERRORS
+    raise ApiError::InvalidQuery
+  end
+
   def json_body
     get_header(JSON_BODY_KEY)
   end

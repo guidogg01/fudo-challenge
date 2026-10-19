@@ -34,6 +34,12 @@ class ApiError < StandardError
     end
   end
 
+  class InvalidQuery < ApiError
+    def initialize
+      super(status: 400, code: "invalid_query", message: "Los parámetros de la URL no son válidos.")
+    end
+  end
+
   class NotFound < ApiError
     def initialize
       super(status: 404, code: "not_found", message: "No se encontró el recurso.")
