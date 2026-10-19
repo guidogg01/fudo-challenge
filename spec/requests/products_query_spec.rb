@@ -1,14 +1,8 @@
 # frozen_string_literal: true
 
 RSpec.describe "Product queries", type: :request do
-  let(:user) { User.create(username: "ana", password_digest: "x") }
-  let(:other_user) { User.create(username: "beto", password_digest: "x") }
-
-  def authorization_for(user)
-    token = SecureRandom.hex(16)
-    AuthToken.create(user_id: user.id, token_digest: AuthToken.digest(token), expires_at: Time.now + 60)
-    "Bearer #{token}"
-  end
+  let(:user) { create_user }
+  let(:other_user) { create_user("beto") }
 
   def create_products(count, owner: user)
     Array.new(count) do |i|
@@ -96,7 +90,7 @@ RSpec.describe "Product queries", type: :request do
       end
     end
 
-    %w[page=% page[]=1&page[x]=2].each do |query_string|
+    %w[page=% page[]=1&page[x]=2 page=%FF per_page=%C3%28].each do |query_string|
       it "responds 400 invalid_query for the malformed query string #{query_string}" do
         get "/products", {}, "QUERY_STRING" => query_string, "HTTP_AUTHORIZATION" => authorization_for(user)
 

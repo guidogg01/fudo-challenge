@@ -1,14 +1,8 @@
 # frozen_string_literal: true
 
 RSpec.describe "GET /product_requests/:id", type: :request do
-  let(:user) { User.create(username: "ana", password_digest: "x") }
+  let(:user) { create_user }
   let(:payload) { Sequel.pg_jsonb("name" => "Mesa", "description" => nil, "price_cents" => 100, "quantity" => 1) }
-
-  def authorization_for(user)
-    token = SecureRandom.hex(16)
-    AuthToken.create(user_id: user.id, token_digest: AuthToken.digest(token), expires_at: Time.now + 60)
-    "Bearer #{token}"
-  end
 
   def get_request(id, as: user)
     get "/product_requests/#{id}", {}, "HTTP_AUTHORIZATION" => authorization_for(as)
@@ -52,7 +46,7 @@ RSpec.describe "GET /product_requests/:id", type: :request do
   end
 
   it "responds 404 for a request of another user, as if it did not exist" do
-    other = User.create(username: "beto", password_digest: "x")
+    other = create_user("beto")
     product_request = ProductRequest.create(user_id: other.id, payload: payload)
 
     get_request(product_request.id)

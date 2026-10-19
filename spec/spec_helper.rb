@@ -15,6 +15,7 @@ Sequel::Migrator.run(DB, File.expand_path("../db/migrations", __dir__))
 require_relative "../config/boot"
 require "rack/builder"
 require "rack/test"
+require_relative "support/helpers"
 
 Sidekiq.testing!(:fake)
 
@@ -32,6 +33,8 @@ end
 
 RSpec.configure do |config|
   config.include RackAppHelper, type: :request
+  config.include UserHelpers
+  config.include LogHelpers
 
   # Cada ejemplo corre en una transacción que siempre se deshace.
   # auto_savepoint permite que un ejemplo siga después de un insert fallido.

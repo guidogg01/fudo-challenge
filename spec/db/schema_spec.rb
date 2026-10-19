@@ -3,10 +3,6 @@
 # Las constraints de la base son la garantía detrás de las validaciones de la app
 # (decisiones 16 y 19), por eso se prueban directamente.
 RSpec.describe "Database schema" do
-  def create_user(username = "ana")
-    User.create(username: username, password_digest: "not-a-real-digest")
-  end
-
   def create_token(user)
     AuthToken.create(user_id: user.id, token_digest: "a" * 64, expires_at: Time.now + 60)
   end
@@ -102,6 +98,14 @@ RSpec.describe "Database schema" do
       product = Product.create(product_attributes(user))
 
       expect { create_request(user, status: "completed", product_id: product.id) }.not_to raise_error
+    end
+
+    it "rejects failed without an error code" do
+      expect { create_request(user, status: "failed") }.to raise_error(Sequel::CheckConstraintViolation)
+    end
+
+    it "rejects an error code on a request that has not failed" do
+      expect { create_request(user, error_code: "creation_failed") }.to raise_error(Sequel::CheckConstraintViolation)
     end
   end
 end

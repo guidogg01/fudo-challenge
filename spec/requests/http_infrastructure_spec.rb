@@ -1,11 +1,9 @@
 # frozen_string_literal: true
 
-require "stringio"
 require "zlib"
 
 # Rutas inventadas para el test, que pasan por el pipeline de middlewares real.
 RSpec.describe "HTTP infrastructure", type: :request do
-  let(:log_output) { StringIO.new }
   let(:echo_handler) do
     ->(request) { JsonResponse.build(200, { path_params: request.path_params, json_body: request.json_body }) }
   end
@@ -20,11 +18,7 @@ RSpec.describe "HTTP infrastructure", type: :request do
   end
 
   def app
-    @app ||= Rack::Lint.new(Application.build(routes, logger: Logger.new(log_output, formatter: JSON_LOG_FORMATTER)))
-  end
-
-  def log_lines
-    log_output.string.lines.map { |line| JSON.parse(line) }
+    @app ||= Rack::Lint.new(Application.build(routes, logger: test_logger))
   end
 
   def post_json(path, body, content_type: "application/json")
@@ -108,6 +102,20 @@ RSpec.describe "HTTP infrastructure", type: :request do
       expect(json_body.dig("error", "message")).to eq("El cuerpo del request no puede contener el carácter nulo.")
     end
 
+    it "responds 413 when the body is bigger than 16 KB" do
+      post_json "/things", JSON.generate(name: "a" * (16 * 1024))
+
+      expect(last_response.status).to eq(413)
+      expect(json_body.dig("error", "code")).to eq("payload_too_large")
+    end
+
+    it "responds 413 even when the Content-Length lies" do
+      body = JSON.generate(name: "a" * (16 * 1024))
+      post "/things", body, "CONTENT_TYPE" => "application/json", "CONTENT_LENGTH" => "10"
+
+      expect(last_response.status).to eq(413)
+    end
+
     it "responds 400 when the JSON is nested too deeply" do
       post_json "/things", "{\"a\":#{'[' * 1000}#{']' * 1000}}"
 
@@ -128,7 +136,7 @@ RSpec.describe "HTTP infrastructure", type: :request do
     it "logs the cause with the request id" do
       get "/boom", {}, "HTTP_X_REQUEST_ID" => "req-123"
 
-      error_line = log_lines.find { |line| line["event"] == "unhandled_error" }
+      error_line = log_events.find { |line| line["event"] == "unhandled_error" }
       expect(error_line).to include("level" => "error", "request_id" => "req-123", "error_message" => "secret detail")
     end
   end
@@ -163,12 +171,12 @@ RSpec.describe "HTTP infrastructure", type: :request do
     it "writes one JSON line per request with method, path, status, duration and request id" do
       get "/nowhere", {}, "HTTP_X_REQUEST_ID" => "client-id-3"
 
-      expect(log_lines.size).to eq(1)
-      expect(log_lines.first).to include(
+      expect(log_events.size).to eq(1)
+      expect(log_events.first).to include(
         "level" => "info", "event" => "request", "method" => "GET", "path" => "/nowhere",
         "status" => 404, "request_id" => "client-id-3", "user_id" => nil
       )
-      expect(log_lines.first["duration_ms"]).to be_a(Numeric)
+      expect(log_events.first["duration_ms"]).to be_a(Numeric)
     end
   end
 

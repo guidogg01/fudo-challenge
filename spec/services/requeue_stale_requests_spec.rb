@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 RSpec.describe RequeueStaleRequests do
-  let(:user) { User.create(username: "ana", password_digest: "x") }
+  let(:user) { create_user }
   let(:old) { Time.now - 120 }
 
   def product_request(**attributes)
@@ -21,8 +21,7 @@ RSpec.describe RequeueStaleRequests do
 
   it "logs how many requests it enqueued" do
     product_request(created_at: old)
-    log_output = StringIO.new
-    stub_const("LOGGER", Logger.new(log_output, formatter: JSON_LOG_FORMATTER))
+    stub_const("LOGGER", test_logger)
 
     described_class.call
 

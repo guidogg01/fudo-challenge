@@ -1,14 +1,8 @@
 # frozen_string_literal: true
 
 RSpec.describe "POST /products", type: :request do
-  let(:user) { User.create(username: "ana", password_digest: "not-a-real-digest") }
+  let(:user) { create_user }
   let(:valid_body) { { name: "Mesa de roble", description: "Para 4", price_cents: 150_000, quantity: 3 } }
-
-  def authorization_for(user)
-    token = SecureRandom.hex(16)
-    AuthToken.create(user_id: user.id, token_digest: AuthToken.digest(token), expires_at: Time.now + 60)
-    "Bearer #{token}"
-  end
 
   def create_product(body, as: user, headers: {})
     post "/products", JSON.generate(body),
@@ -53,7 +47,7 @@ RSpec.describe "POST /products", type: :request do
     end
 
     it "is saved for the authenticated user, ignoring a user_id in the body" do
-      other = User.create(username: "beto", password_digest: "x")
+      other = create_user("beto")
       create_product(valid_body.merge(user_id: other.id))
 
       expect(ProductRequest.first.user_id).to eq(user.id)
@@ -120,7 +114,7 @@ RSpec.describe "POST /products", type: :request do
     end
 
     it "accepts a name that only another user has" do
-      other = User.create(username: "beto", password_digest: "x")
+      other = create_user("beto")
       Product.create(user_id: other.id, name: "Mesa de roble", price_cents: 1, quantity: 1)
 
       create_product(valid_body)

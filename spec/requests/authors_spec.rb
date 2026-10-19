@@ -37,6 +37,14 @@ RSpec.describe "GET /AUTHORS", type: :request do
     expect(Zlib.gunzip(last_response.body)).to eq("Guido Greco\n")
   end
 
+  it "answers HEAD like GET, without a body" do
+    head "/AUTHORS"
+
+    expect(last_response.status).to eq(200)
+    expect(last_response.headers["cache-control"]).to eq("public, max-age=86400")
+    expect(last_response.body).to be_empty
+  end
+
   it "responds 405 to other methods" do
     post "/AUTHORS"
 

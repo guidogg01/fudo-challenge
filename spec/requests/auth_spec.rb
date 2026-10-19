@@ -1,9 +1,7 @@
 # frozen_string_literal: true
 
-require "stringio"
-
 RSpec.describe "Authentication", type: :request do
-  let!(:user) { User.create(username: "Demo", password_digest: User.digest_password("demo1234")) }
+  let!(:user) { create_user("Demo", password: "demo1234") }
 
   def login(body, content_type: "application/json")
     post "/auth/login", JSON.generate(body), "CONTENT_TYPE" => content_type
@@ -12,14 +10,6 @@ RSpec.describe "Authentication", type: :request do
   def logout(authorization = nil)
     headers = authorization ? { "HTTP_AUTHORIZATION" => authorization } : {}
     post "/auth/logout", nil, headers
-  end
-
-  def issue_token(expires_at: Time.now + 60, revoked_at: nil)
-    token = "token-#{SecureRandom.hex(8)}"
-    AuthToken.create(
-      user_id: user.id, token_digest: AuthToken.digest(token), expires_at: expires_at, revoked_at: revoked_at
-    )
-    token
   end
 
   def expect_invalid_credentials
@@ -122,13 +112,13 @@ RSpec.describe "Authentication", type: :request do
 
   describe "private routes" do
     it "accept a valid token" do
-      logout("Bearer #{issue_token}")
+      logout("Bearer #{issue_token(user)}")
 
       expect(last_response.status).to eq(204)
     end
 
     it "accept the scheme name in any case" do
-      logout("bearer #{issue_token}")
+      logout("bearer #{issue_token(user)}")
 
       expect(last_response.status).to eq(204)
     end
@@ -140,7 +130,7 @@ RSpec.describe "Authentication", type: :request do
     end
 
     it "respond 401 with a malformed header" do
-      logout("Token #{issue_token}")
+      logout("Token #{issue_token(user)}")
 
       expect_unauthorized
     end
@@ -152,13 +142,13 @@ RSpec.describe "Authentication", type: :request do
     end
 
     it "respond 401 with an expired token" do
-      logout("Bearer #{issue_token(expires_at: Time.now - 1)}")
+      logout("Bearer #{issue_token(user, expires_at: Time.now - 1)}")
 
       expect_unauthorized
     end
 
     it "respond 401 with a revoked token" do
-      logout("Bearer #{issue_token(revoked_at: Time.now - 1)}")
+      logout("Bearer #{issue_token(user, revoked_at: Time.now - 1)}")
 
       expect_unauthorized
     end
@@ -166,14 +156,14 @@ RSpec.describe "Authentication", type: :request do
 
   describe "POST /auth/logout" do
     it "responds 204 without a body" do
-      logout("Bearer #{issue_token}")
+      logout("Bearer #{issue_token(user)}")
 
       expect(last_response.status).to eq(204)
       expect(last_response.body).to be_empty
     end
 
     it "revokes the token, which then gets 401" do
-      token = issue_token
+      token = issue_token(user)
 
       logout("Bearer #{token}")
       expect(last_response.status).to eq(204)
@@ -183,14 +173,14 @@ RSpec.describe "Authentication", type: :request do
     end
 
     it "ignores a body, since logout reads none" do
-      post "/auth/logout", "not json", "HTTP_AUTHORIZATION" => "Bearer #{issue_token}", "CONTENT_TYPE" => "text/plain"
+      post "/auth/logout", "not json", "HTTP_AUTHORIZATION" => authorization_for(user), "CONTENT_TYPE" => "text/plain"
 
       expect(last_response.status).to eq(204)
     end
 
     it "leaves the user's other tokens working" do
-      other_token = issue_token
-      logout("Bearer #{issue_token}")
+      other_token = issue_token(user)
+      logout("Bearer #{issue_token(user)}")
 
       logout("Bearer #{other_token}")
 
@@ -199,14 +189,12 @@ RSpec.describe "Authentication", type: :request do
   end
 
   describe "request log" do
-    let(:log_output) { StringIO.new }
-
     def app
-      @app ||= Application.build(ROUTES, logger: Logger.new(log_output, formatter: JSON_LOG_FORMATTER))
+      @app ||= Application.build(ROUTES, logger: test_logger)
     end
 
     it "records the id of the authenticated user" do
-      logout("Bearer #{issue_token}")
+      logout("Bearer #{issue_token(user)}")
 
       expect(JSON.parse(log_output.string.lines.last)).to include("path" => "/auth/logout", "user_id" => user.id)
     end

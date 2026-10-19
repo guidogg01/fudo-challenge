@@ -26,4 +26,11 @@ RSpec.describe "GET /health", type: :request do
     expect(last_response.status).to eq(503)
     expect(json_body).to eq("status" => "error", "checks" => { "database" => "ok", "redis" => "error" })
   end
+
+  it "answers HEAD with the status and no body, for monitors" do
+    head "/health"
+
+    expect(last_response.status).to eq(200)
+    expect(last_response.body).to be_empty
+  end
 end

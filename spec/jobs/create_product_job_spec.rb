@@ -1,22 +1,15 @@
 # frozen_string_literal: true
 
-require "stringio"
-
 RSpec.describe CreateProductJob do
-  let(:user) { User.create(username: "ana", password_digest: "x") }
-  let(:log_output) { StringIO.new }
+  let(:user) { create_user }
 
-  before { stub_const("LOGGER", Logger.new(log_output, formatter: JSON_LOG_FORMATTER)) }
+  before { stub_const("LOGGER", test_logger) }
 
   def pending_request(name: "Mesa", for_user: user)
     ProductRequest.create(
       user_id: for_user.id,
       payload: Sequel.pg_jsonb("name" => name, "description" => "Roble", "price_cents" => 150_000, "quantity" => 3)
     )
-  end
-
-  def log_events
-    log_output.string.lines.map { |line| JSON.parse(line) }
   end
 
   def capturing_sql
