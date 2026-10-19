@@ -25,3 +25,7 @@ RSpec/MultipleExpectations:
 RSpec/DescribeClass:
   Exclude:
     - "spec/db/**/*"
+
+# A multi-line expected hash is one assertion, not several lines of logic.
+RSpec/ExampleLength:
+  CountAsOne: ["array", "hash", "heredoc", "method_call"]

@@ -3,6 +3,8 @@
 ENV["RACK_ENV"] = "test"
 # The lowest cost bcrypt accepts: hashing stays fast in tests.
 ENV["BCRYPT_COST"] = "4"
+# Keeps request logs out of the test output. Specs that check logs pass their own logger.
+ENV["LOG_LEVEL"] = "fatal"
 
 # The models need the tables, so the test database is migrated before the
 # application is loaded.
