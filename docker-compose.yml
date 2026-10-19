@@ -12,6 +12,7 @@ x-ruby-service: &ruby-service
     DATABASE_URL: ${DATABASE_URL:-postgres://fudo:fudo@db:5432/fudo-challenge}
     TEST_DATABASE_URL: ${TEST_DATABASE_URL:-postgres://fudo:fudo@db:5432/fudo-challenge-test}
     BCRYPT_COST: ${BCRYPT_COST:-12}
+    LOG_LEVEL: ${LOG_LEVEL:-info}
   # Mounting the code lets tests and RuboCop run on the latest edits
   # without rebuilding the image.
   volumes:
