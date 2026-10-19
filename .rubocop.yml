@@ -1,0 +1,22 @@
+plugins:
+  - rubocop-rspec
+
+AllCops:
+  TargetRubyVersion: 4.0
+  NewCops: enable
+  SuggestExtensions: false
+  Exclude:
+    - "vendor/**/*"
+
+# Classes are documented with a short "why" comment only where it helps;
+# a mandatory comment on every class adds noise to small, obvious ones.
+Style/Documentation:
+  Enabled: false
+
+Style/StringLiterals:
+  EnforcedStyle: double_quotes
+
+# A request spec checks one response: its status, headers and body.
+# Splitting that into one example per line would repeat the request each time.
+RSpec/MultipleExpectations:
+  Max: 5
