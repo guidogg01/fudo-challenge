@@ -131,7 +131,7 @@ Registro de las decisiones del proyecto, en formato ADR liviano: **Contexto → 
 - **JWT:** no necesita consultar la base, pero no se puede revocar antes de que venza sin agregar una lista negra, que es justamente una consulta a la base.
 - **Guardar el token en claro:** si se filtra la base, todos los tokens quedan usables.
 
-**Consecuencias.** Hay dos consultas por request autenticado, las dos por índice y muy baratas: el token, por su `token_digest` único, y después su usuario, por clave primaria. Se podrían unir en una sola con un join, pero no vale la complejidad para este volumen. SHA-256 alcanza porque el token tiene 256 bits al azar: no se puede adivinar por fuerza bruta, a diferencia de una contraseña. Los tokens vencidos o revocados no se borran: una limpieza periódica queda como próximo paso.
+**Consecuencias.** Hay dos consultas por request autenticado, las dos por índice y muy baratas: el token, por su `token_digest` único, y después su usuario, por clave primaria. Se podrían unir en una sola con un join, pero no vale la complejidad para este volumen. SHA-256 alcanza porque el token tiene 256 bits al azar: no se puede adivinar por fuerza bruta, a diferencia de una contraseña. Los tokens vencidos o revocados no se borran: una limpieza periódica queda como próximo paso. `AuthToken.find_active` compara `expires_at` con `Time.now` de Ruby, no con `NOW()` de PostgreSQL. Como los dos lados están en UTC, la única diferencia posible es el desfase entre los relojes de los contenedores de la app y de la base, que en la práctica es de milisegundos.
 
 ## 9. La autenticación la decide el router
 
@@ -217,7 +217,7 @@ Registro de las decisiones del proyecto, en formato ADR liviano: **Contexto → 
 
 **Alternativas consideradas.** El tipo `citext`: requiere instalar una extensión de PostgreSQL y hace que *todas* las comparaciones de la columna ignoren mayúsculas, lo que es menos explícito.
 
-**Consecuencias.** Las consultas de duplicados tienen que usar `lower(name)` para aprovechar el índice. El mismo índice sirve para filtrar los productos por `user_id`.
+**Consecuencias.** Las consultas de duplicados tienen que usar `lower(name)` para aprovechar el índice. El mismo índice sirve para filtrar los productos por `user_id`. La `description` no se normaliza: se guarda tal como llega (puede tener espacios repetidos o en los bordes, o ser una cadena vacía), porque no participa de ninguna regla de unicidad. Solo el `name` se recorta y colapsa sus espacios.
 
 ## 17. Datos pedidos en `jsonb`
 
