@@ -1,0 +1,1383 @@
+{
+  "info": {
+    "_postman_id": "86e55e83-084f-4b00-86bb-45af77df2c10",
+    "name": "Fudo Challenge API",
+    "description": "Requests y tests de la API del desafío técnico de Fudo (Rack + Sidekiq). Usar con el environment 'Fudo Challenge - Local' (postman/local.postman_environment.json) y la API levantada con Docker Compose y el seed (`rake db:seed`).\n\nLas carpetas están en el orden del flujo, así Newman o el Collection Runner la corren de punta a punta: estado y AUTHORS, autenticación, creación (asíncrona), espera de la solicitud, consultas y errores, y al final el cierre de sesión.\n\nLa autenticación Bearer se hereda de la colección; login, AUTHORS y health no la usan. La documentación completa está en docs/openapi.yaml (Swagger UI en http://localhost:8081).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Estado y AUTHORS",
+      "description": "Endpoints públicos: no necesitan token.",
+      "item": [
+        {
+          "name": "Health",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Base y Redis ok', () => pm.expect(pm.response.json()).to.eql({ status: 'ok', checks: { database: 'ok', redis: 'ok' } }));",
+                  "pm.test('Devuelve X-Request-Id', () => pm.expect(pm.response.headers.get('X-Request-Id')).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Estado de la app, PostgreSQL y Redis. 503 si alguno no responde.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Health con gzip",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Comprimida con gzip', () => pm.expect(pm.response.headers.get('Content-Encoding')).to.eql('gzip'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept-Encoding",
+                "value": "gzip"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Pide la respuesta comprimida: viene con Content-Encoding: gzip.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "AUTHORS",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Nombre y apellido del autor', () => pm.expect(pm.response.text().trim()).to.eql('Guido Greco'));",
+                  "pm.test('Cacheable 24 h', () => pm.expect(pm.response.headers.get('Cache-Control')).to.eql('public, max-age=86400'));",
+                  "pm.test('Tiene Last-Modified', () => pm.expect(pm.response.headers.get('Last-Modified')).to.be.a('string'));",
+                  "pm.environment.set('authors_last_modified', pm.response.headers.get('Last-Modified'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/AUTHORS",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "AUTHORS"
+              ]
+            },
+            "description": "Archivo estático público con Cache-Control: public, max-age=86400. El script guarda Last-Modified.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "AUTHORS sin cambios (304)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('304 Not Modified', () => pm.response.to.have.status(304));",
+                  "pm.test('Repite la política de caché', () => pm.expect(pm.response.headers.get('Cache-Control')).to.eql('public, max-age=86400'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "If-Modified-Since",
+                "value": "{{authors_last_modified}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/AUTHORS",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "AUTHORS"
+              ]
+            },
+            "description": "Con If-Modified-Since igual a Last-Modified responde 304 sin cuerpo.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "AUTHORS con otro método (405)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('405', () => pm.response.to.have.status(405));",
+                  "pm.test('code method_not_allowed', () => pm.expect(pm.response.json().error.code).to.eql('method_not_allowed'));",
+                  "pm.test('Formato de error { error: { code, message, details } }', () => {",
+                  "  const error = pm.response.json().error;",
+                  "  pm.expect(error).to.have.all.keys('code', 'message', 'details');",
+                  "});",
+                  "pm.test('Allow: GET', () => pm.expect(pm.response.headers.get('Allow')).to.eql('GET'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/AUTHORS",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "AUTHORS"
+              ]
+            },
+            "description": "Un método no soportado responde 405 con el header Allow.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Ruta inexistente (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404', () => pm.response.to.have.status(404));",
+                  "pm.test('code not_found', () => pm.expect(pm.response.json().error.code).to.eql('not_found'));",
+                  "pm.test('Formato de error { error: { code, message, details } }', () => {",
+                  "  const error = pm.response.json().error;",
+                  "  pm.expect(error).to.have.all.keys('code', 'message', 'details');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/no-existe",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "no-existe"
+              ]
+            },
+            "description": "Una ruta que no existe responde 404 not_found.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. Autenticación",
+      "description": "Login con usuario y contraseña. Errores primero; el login correcto guarda {{token}}.",
+      "item": [
+        {
+          "name": "Login incorrecto (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401', () => pm.response.to.have.status(401));",
+                  "pm.test('code invalid_credentials', () => pm.expect(pm.response.json().error.code).to.eql('invalid_credentials'));",
+                  "pm.test('Formato de error { error: { code, message, details } }', () => {",
+                  "  const error = pm.response.json().error;",
+                  "  pm.expect(error).to.have.all.keys('code', 'message', 'details');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Contraseña incorrecta: 401 invalid_credentials, con el mismo mensaje que si el usuario no existiera.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"incorrecta\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login sin JSON (415)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('415', () => pm.response.to.have.status(415));",
+                  "pm.test('code unsupported_media_type', () => pm.expect(pm.response.json().error.code).to.eql('unsupported_media_type'));",
+                  "pm.test('Formato de error { error: { code, message, details } }', () => {",
+                  "  const error = pm.response.json().error;",
+                  "  pm.expect(error).to.have.all.keys('code', 'message', 'details');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Sin Content-Type: application/json responde 415.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "username=demo",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login con JSON roto (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400', () => pm.response.to.have.status(400));",
+                  "pm.test('code invalid_json', () => pm.expect(pm.response.json().error.code).to.eql('invalid_json'));",
+                  "pm.test('Formato de error { error: { code, message, details } }', () => {",
+                  "  const error = pm.response.json().error;",
+                  "  pm.expect(error).to.have.all.keys('code', 'message', 'details');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Un cuerpo que no es JSON válido responde 400 invalid_json.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"username\": \"demo\",",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login con datos inválidos (422)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422', () => pm.response.to.have.status(422));",
+                  "pm.test('code validation_failed', () => pm.expect(pm.response.json().error.code).to.eql('validation_failed'));",
+                  "pm.test('Formato de error { error: { code, message, details } }', () => {",
+                  "  const error = pm.response.json().error;",
+                  "  pm.expect(error).to.have.all.keys('code', 'message', 'details');",
+                  "});",
+                  "pm.test('Un detalle por campo', () => {",
+                  "  const fields = pm.response.json().error.details.map((detail) => detail.field);",
+                  "  pm.expect(fields).to.eql(['username', 'password']);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Campos vacíos o de otro tipo: 422 con un detalle por campo.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"\",\n  \"password\": 1234\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login con cuerpo enorme (413)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('huge_password', 'a'.repeat(17 * 1024));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('413', () => pm.response.to.have.status(413));",
+                  "pm.test('code payload_too_large', () => pm.expect(pm.response.json().error.code).to.eql('payload_too_large'));",
+                  "pm.test('Formato de error { error: { code, message, details } }', () => {",
+                  "  const error = pm.response.json().error;",
+                  "  pm.expect(error).to.have.all.keys('code', 'message', 'details');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Un cuerpo de más de 16 KB responde 413 payload_too_large.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{huge_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Iniciar sesión",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "  const data = pm.response.json().data;",
+                  "  pm.test('Token Bearer', () => pm.expect(data.token_type).to.eql('Bearer'));",
+                  "  pm.test('Vence en unas 24 h', () => {",
+                  "    const hours = (new Date(data.expires_at) - Date.now()) / 36e5;",
+                  "    pm.expect(hours).to.be.within(23.9, 24.1);",
+                  "  });",
+                  "  pm.test('No se cachea', () => pm.expect(pm.response.headers.get('Cache-Control')).to.eql('no-store'));",
+                  "  pm.environment.set('token', data.token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Valida usuario y contraseña y devuelve un token Bearer. El script guarda el token en el environment.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Creación de productos",
+      "description": "La creación es asíncrona: la respuesta solo confirma que se registró la solicitud.",
+      "item": [
+        {
+          "name": "Sin token (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401', () => pm.response.to.have.status(401));",
+                  "pm.test('code unauthorized', () => pm.expect(pm.response.json().error.code).to.eql('unauthorized'));",
+                  "pm.test('Formato de error { error: { code, message, details } }', () => {",
+                  "  const error = pm.response.json().error;",
+                  "  pm.expect(error).to.have.all.keys('code', 'message', 'details');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/products",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products"
+              ]
+            },
+            "description": "Sin Authorization la API responde 401 unauthorized.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Sin token\",\n  \"price_cents\": 100,\n  \"quantity\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Solicitar creación de producto",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Un nombre nuevo en cada corrida, porque es único por usuario.",
+                  "pm.environment.set('product_name', 'Mesa de roble ' + Date.now());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('202 Accepted', () => pm.response.to.have.status(202));",
+                  "  const data = pm.response.json().data;",
+                  "  pm.test('Solicitud pending, sin producto todavía', () => {",
+                  "    pm.expect(data.status).to.eql('pending');",
+                  "    pm.expect(data.product_id).to.eql(null);",
+                  "  });",
+                  "  pm.test('Location apunta a la solicitud', () => pm.expect(pm.response.headers.get('Location')).to.eql('/product_requests/' + data.id));",
+                  "  pm.environment.set('product_request_id', data.id);",
+                  "  pm.environment.set('requested_at', Date.now());",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/products",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products"
+              ]
+            },
+            "description": "Responde 202 con la solicitud pending y el header Location. El producto aparece no antes de 5 segundos después. El script guarda el id de la solicitud y el momento del pedido.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"  {{product_name}}  \",\n  \"description\": \"Mesa para 4 personas\",\n  \"price_cents\": 150000,\n  \"quantity\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "El producto todavía no existe",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Todavía no está', () => {",
+                  "  const names = pm.response.json().data.map((product) => product.name);",
+                  "  pm.expect(names).to.not.include(pm.environment.get('product_name'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/products?per_page=100",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "per_page",
+                  "value": "100"
+                }
+              ]
+            },
+            "description": "Justo después del 202, el producto no aparece en la lista."
+          },
+          "response": []
+        },
+        {
+          "name": "Nombre repetido en otra solicitud",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('202 Accepted', () => pm.response.to.have.status(202));",
+                  "pm.environment.set('duplicate_request_id', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/products",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products"
+              ]
+            },
+            "description": "Mientras la primera está pending, el 409 temprano no la ve (decisión 15): se acepta, y el job la va a marcar failed.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{product_name}}\",\n  \"price_cents\": 1,\n  \"quantity\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Datos inválidos (422)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422', () => pm.response.to.have.status(422));",
+                  "pm.test('code validation_failed', () => pm.expect(pm.response.json().error.code).to.eql('validation_failed'));",
+                  "pm.test('Formato de error { error: { code, message, details } }', () => {",
+                  "  const error = pm.response.json().error;",
+                  "  pm.expect(error).to.have.all.keys('code', 'message', 'details');",
+                  "});",
+                  "pm.test('Un detalle por campo', () => {",
+                  "  const issues = pm.response.json().error.details.map((detail) => detail.field + ':' + detail.issue);",
+                  "  pm.expect(issues).to.eql(['name:blank', 'price_cents:invalid_type', 'quantity:negative']);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/products",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products"
+              ]
+            },
+            "description": "Nombre vacío, precio con decimales y cantidad negativa: 422 con un detalle por campo.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"\",\n  \"price_cents\": 10.5,\n  \"quantity\": -1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. Solicitudes de creación",
+      "description": "Seguimiento de la creación asíncrona.",
+      "item": [
+        {
+          "name": "Esperar a que se procese la solicitud",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Consulta cada medio segundo hasta que la solicitud sale de pending.",
+                  "setTimeout(() => {}, 500);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "  const data = pm.response.json().data;",
+                  "  const attempts = (pm.environment.get('poll_attempts') || 0) + 1;",
+                  "  if (data.status === 'pending' && attempts < 60) {",
+                  "    pm.environment.set('poll_attempts', attempts);",
+                  "    pm.execution.setNextRequest(pm.info.requestName);",
+                  "  } else {",
+                  "    pm.environment.unset('poll_attempts');",
+                  "    pm.test('Completada con su producto', () => {",
+                  "      pm.expect(data.status).to.eql('completed');",
+                  "      pm.expect(data.product_url).to.eql('/products/' + data.product_id);",
+                  "    });",
+                  "    pm.test('No antes de 5 segundos', () => {",
+                  "      pm.expect(Date.now() - pm.environment.get('requested_at')).to.be.at.least(5000);",
+                  "    });",
+                  "    pm.environment.set('product_id', data.product_id);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/product_requests/{{product_request_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "product_requests",
+                "{{product_request_id}}"
+              ]
+            },
+            "description": "Repite la consulta hasta que la solicitud deja de estar pending (como máximo 60 intentos). Verifica que el producto apareció no antes de 5 segundos y guarda product_id."
+          },
+          "response": []
+        },
+        {
+          "name": "Solicitud con nombre repetido (failed)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "setTimeout(() => {}, 500);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "  const data = pm.response.json().data;",
+                  "  const attempts = (pm.environment.get('poll_attempts') || 0) + 1;",
+                  "  if (data.status === 'pending' && attempts < 60) {",
+                  "    pm.environment.set('poll_attempts', attempts);",
+                  "    pm.execution.setNextRequest(pm.info.requestName);",
+                  "  } else {",
+                  "    pm.environment.unset('poll_attempts');",
+                  "    pm.test('Failed por nombre repetido', () => {",
+                  "      pm.expect(data.status).to.eql('failed');",
+                  "      pm.expect(data.error.code).to.eql('name_already_taken');",
+                  "    });",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/product_requests/{{duplicate_request_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "product_requests",
+                "{{duplicate_request_id}}"
+              ]
+            },
+            "description": "La segunda solicitud con el mismo nombre termina failed con name_already_taken. Repite la consulta mientras siga pending, porque su job puede correr justo después del primero."
+          },
+          "response": []
+        },
+        {
+          "name": "Solicitud inexistente (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404', () => pm.response.to.have.status(404));",
+                  "pm.test('code not_found', () => pm.expect(pm.response.json().error.code).to.eql('not_found'));",
+                  "pm.test('Formato de error { error: { code, message, details } }', () => {",
+                  "  const error = pm.response.json().error;",
+                  "  pm.expect(error).to.have.all.keys('code', 'message', 'details');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/product_requests/00000000-0000-4000-8000-000000000000",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "product_requests",
+                "00000000-0000-4000-8000-000000000000"
+              ]
+            },
+            "description": "Una solicitud que no existe (o de otro usuario) responde 404."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. Consulta de productos",
+      "description": "Cada usuario ve solo sus productos.",
+      "item": [
+        {
+          "name": "Ver un producto",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "  const product = pm.response.json().data;",
+                  "  pm.test('Nombre normalizado', () => pm.expect(product.name).to.eql(pm.environment.get('product_name')));",
+                  "  pm.test('Precio en centavos enteros', () => pm.expect(product.price_cents).to.eql(150000));",
+                  "  pm.test('Todos los campos', () => pm.expect(product).to.have.all.keys('id', 'name', 'description', 'price_cents', 'quantity', 'created_at', 'updated_at'));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products",
+                "{{product_id}}"
+              ]
+            },
+            "description": "Un producto propio. Uno ajeno o inexistente da 404."
+          },
+          "response": []
+        },
+        {
+          "name": "Listar mis productos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "  const body = pm.response.json();",
+                  "  pm.test('Incluye el producto creado', () => pm.expect(body.data.map((product) => product.id)).to.include(pm.environment.get('product_id')));",
+                  "  pm.test('Meta de paginación', () => pm.expect(body.meta).to.have.all.keys('page', 'per_page', 'total', 'total_pages'));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/products?page=1&per_page=100",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "per_page",
+                  "value": "100"
+                }
+              ]
+            },
+            "description": "Solo los productos ya creados del usuario autenticado, paginados y ordenados por id."
+          },
+          "response": []
+        },
+        {
+          "name": "Listar con gzip",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Comprimida con gzip', () => pm.expect(pm.response.headers.get('Content-Encoding')).to.eql('gzip'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept-Encoding",
+                "value": "gzip"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/products",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products"
+              ]
+            },
+            "description": "Con Accept-Encoding: gzip la lista viaja comprimida."
+          },
+          "response": []
+        },
+        {
+          "name": "Nombre ya creado (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409', () => pm.response.to.have.status(409));",
+                  "pm.test('code name_already_taken', () => pm.expect(pm.response.json().error.code).to.eql('name_already_taken'));",
+                  "pm.test('Formato de error { error: { code, message, details } }', () => {",
+                  "  const error = pm.response.json().error;",
+                  "  pm.expect(error).to.have.all.keys('code', 'message', 'details');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/products",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products"
+              ]
+            },
+            "description": "Si el producto ya existe con ese nombre (sin distinguir mayúsculas), responde 409.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{product_name}}\",\n  \"price_cents\": 1,\n  \"quantity\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Paginación inválida (422)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422', () => pm.response.to.have.status(422));",
+                  "pm.test('code validation_failed', () => pm.expect(pm.response.json().error.code).to.eql('validation_failed'));",
+                  "pm.test('Formato de error { error: { code, message, details } }', () => {",
+                  "  const error = pm.response.json().error;",
+                  "  pm.expect(error).to.have.all.keys('code', 'message', 'details');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/products?per_page=101",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "per_page",
+                  "value": "101"
+                }
+              ]
+            },
+            "description": "per_page mayor a 100 responde 422, no se corrige en silencio."
+          },
+          "response": []
+        },
+        {
+          "name": "Query string mal formado (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400', () => pm.response.to.have.status(400));",
+                  "pm.test('code invalid_query', () => pm.expect(pm.response.json().error.code).to.eql('invalid_query'));",
+                  "pm.test('Formato de error { error: { code, message, details } }', () => {",
+                  "  const error = pm.response.json().error;",
+                  "  pm.expect(error).to.have.all.keys('code', 'message', 'details');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/products?page[]=1&page[x]=2",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "page[]",
+                  "value": "1"
+                },
+                {
+                  "key": "page[x]",
+                  "value": "2"
+                }
+              ]
+            },
+            "description": "Un query string que no se puede leer responde 400 invalid_query."
+          },
+          "response": []
+        },
+        {
+          "name": "Producto inexistente (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404', () => pm.response.to.have.status(404));",
+                  "pm.test('code not_found', () => pm.expect(pm.response.json().error.code).to.eql('not_found'));",
+                  "pm.test('Formato de error { error: { code, message, details } }', () => {",
+                  "  const error = pm.response.json().error;",
+                  "  pm.expect(error).to.have.all.keys('code', 'message', 'details');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/products/999999999",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products",
+                "999999999"
+              ]
+            },
+            "description": "Un producto que no existe (o de otro usuario) responde 404."
+          },
+          "response": []
+        },
+        {
+          "name": "Método no permitido (405)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('405', () => pm.response.to.have.status(405));",
+                  "pm.test('code method_not_allowed', () => pm.expect(pm.response.json().error.code).to.eql('method_not_allowed'));",
+                  "pm.test('Formato de error { error: { code, message, details } }', () => {",
+                  "  const error = pm.response.json().error;",
+                  "  pm.expect(error).to.have.all.keys('code', 'message', 'details');",
+                  "});",
+                  "pm.test('Allow: GET, POST', () => pm.expect(pm.response.headers.get('Allow')).to.eql('GET, POST'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/products",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products"
+              ]
+            },
+            "description": "La ruta existe, pero no con DELETE: 405 con Allow."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "6. Cierre de sesión",
+      "description": "Al final, porque revoca el token.",
+      "item": [
+        {
+          "name": "Cerrar sesión",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Revoca el token actual. Después de esto, el token devuelve 401."
+          },
+          "response": []
+        },
+        {
+          "name": "Token revocado (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401', () => pm.response.to.have.status(401));",
+                  "pm.test('code unauthorized', () => pm.expect(pm.response.json().error.code).to.eql('unauthorized'));",
+                  "pm.test('Formato de error { error: { code, message, details } }', () => {",
+                  "  const error = pm.response.json().error;",
+                  "  pm.expect(error).to.have.all.keys('code', 'message', 'details');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/products",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products"
+              ]
+            },
+            "description": "El token revocado ya no sirve."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  }
+}
