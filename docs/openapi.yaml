@@ -72,6 +72,7 @@ paths:
               schema: { $ref: '#/components/schemas/Error' }
               example:
                 error: { code: invalid_credentials, message: Usuario o contraseña incorrectos., details: [] }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
 
@@ -137,6 +138,7 @@ paths:
               schema: { $ref: '#/components/schemas/Error' }
               example:
                 error: { code: name_already_taken, message: Ya tenés un producto con ese nombre., details: [] }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
 
@@ -417,6 +419,7 @@ components:
                 - invalid_credentials
                 - unauthorized
                 - not_found
+                - payload_too_large
                 - method_not_allowed
                 - name_already_taken
                 - unsupported_media_type
@@ -437,6 +440,13 @@ components:
                   message: { type: string, example: El nombre no puede superar los 100 caracteres. }
 
   responses:
+    PayloadTooLarge:
+      description: El cuerpo supera los 16 KB.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            error: { code: payload_too_large, message: El cuerpo del request no puede superar los 16 KB., details: [] }
     InvalidQuery:
       description: El query string está mal formado (por ejemplo, `?page=%`).
       content:

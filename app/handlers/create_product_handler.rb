@@ -5,7 +5,7 @@ class CreateProductHandler
   def call(request)
     attributes = ProductInput.validate!(request.json_body)
     product_request = RequestProductCreation.call(
-      user: request.current_user, attributes: attributes, request_id: request.get_header(RequestId::ENV_KEY)
+      user: request.current_user, attributes: attributes, request_id: request.request_id
     )
 
     JsonResponse.build(

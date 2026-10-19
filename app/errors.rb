@@ -71,9 +71,21 @@ class ApiError < StandardError
     end
   end
 
+  class PayloadTooLarge < ApiError
+    def initialize(max_bytes)
+      super(status: 413, code: "payload_too_large",
+            message: "El cuerpo del request no puede superar los #{max_bytes / 1024} KB.")
+    end
+  end
+
   class ValidationFailed < ApiError
     def initialize(details)
       super(status: 422, code: "validation_failed", message: "Los datos enviados no son válidos.", details: details)
+    end
+
+    # issues: { "campo" => "issue" }; messages: { "campo" => { "issue" => "mensaje" } }.
+    def self.from_issues(issues, messages)
+      new(issues.map { |field, issue| { field: field, issue: issue, message: messages.fetch(field).fetch(issue) } })
     end
   end
 end
