@@ -27,6 +27,14 @@ class ApiError < StandardError
     end
   end
 
+  class InvalidCredentials < ApiError
+    # The same answer whether the user does not exist or the password is wrong
+    # (see DECISIONS.md, decision 10).
+    def initialize
+      super(status: 401, code: "invalid_credentials", message: "Usuario o contraseña incorrectos.")
+    end
+  end
+
   class NotFound < ApiError
     def initialize
       super(status: 404, code: "not_found", message: "No se encontró el recurso.")
@@ -48,6 +56,13 @@ class ApiError < StandardError
   class UnsupportedMediaType < ApiError
     def initialize
       super(status: 415, code: "unsupported_media_type", message: "El Content-Type debe ser application/json.")
+    end
+  end
+
+  class ValidationFailed < ApiError
+    # details: one { field, issue, message } per invalid field.
+    def initialize(details)
+      super(status: 422, code: "validation_failed", message: "Los datos enviados no son válidos.", details: details)
     end
   end
 end

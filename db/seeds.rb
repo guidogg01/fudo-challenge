@@ -5,10 +5,10 @@
 username = "demo"
 password = "demo1234"
 
-if User.where(Sequel.function(:lower, :username) => username).empty?
+if User.find_by_username(username).nil?
   User.create(
     username: username,
-    password_digest: BCrypt::Password.create(password, cost: Integer(ENV.fetch("BCRYPT_COST", 12)))
+    password_digest: User.digest_password(password)
   )
   puts "Created user #{username}"
 else

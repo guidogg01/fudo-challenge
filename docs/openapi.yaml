@@ -49,6 +49,9 @@ paths:
           description: Credenciales correctas.
           headers:
             X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+            Cache-Control:
+              description: El token no se guarda en ningún caché (navegador ni proxy).
+              schema: { type: string, example: no-store }
           content:
             application/json:
               schema:
