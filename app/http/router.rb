@@ -26,10 +26,15 @@ class Router
     end
     raise ApiError::NotFound if matches.empty?
 
-    match = matches.find { |route, _| route.verb == request.request_method }
+    match = matches.find { |route, _| route.verb == routed_verb(request) }
     raise ApiError::MethodNotAllowed, matches.map { |route, _| route.verb }.uniq unless match
 
     match
+  end
+
+  # HEAD es un GET sin body (Rack::Head lo vacía), así que usa las mismas rutas.
+  def routed_verb(request)
+    request.head? ? "GET" : request.request_method
   end
 
   # El usuario sale siempre del token, nunca del body ni de la URL.
