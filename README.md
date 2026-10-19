@@ -75,7 +75,7 @@ sequenceDiagram
 - La respuesta del `POST` **no confirma** que el producto exista: solo dice que la solicitud quedó registrada.
 - El producto aparece **no antes de 5 segundos** después, y en la práctica entre 5 y 6,5 segundos, porque Sidekiq revisa los jobs programados más o menos cada segundo. Justo después de reiniciar el worker, Sidekiq espera de 10 a 15 segundos antes de su primera revisión.
 - Si dos pedidos con el mismo nombre llegan casi a la vez, los dos reciben `202`: el índice único de la base deja pasar uno solo y el otro termina `failed`.
-- El job es **idempotente**: si corre dos veces, incluso al mismo tiempo, crea un solo producto. Se reintenta hasta 5 veces ante errores inesperados, y al arrancar el worker re-encola las solicitudes que quedaron `pending`.
+- El job es **idempotente**: si corre dos veces, incluso al mismo tiempo, crea un solo producto. Se reintenta hasta 5 veces ante errores inesperados, y al arrancar el worker re-encola las solicitudes que siguen `pending` desde hace más de un minuto.
 
 ## 3. Requisitos
 
@@ -253,14 +253,14 @@ Este es un proyecto de una sola vez, con un alcance acotado. Armar una skill reu
 - **`Idempotency-Key` en `POST /products`**, para que un cliente pueda reintentar sin crear dos solicitudes.
 - **Paginación por cursor** (`?after=42`), más eficiente que el offset en tablas grandes.
 - **Moneda:** hoy se asume una sola.
-- **Refresh tokens**, para no tener que volver a hacer login cada 24 horas.
 - **Observabilidad:** enviar los logs a OpenSearch, tablero en Grafana y tracing con OpenTelemetry.
 - **Métricas:** latencia por endpoint, tamaño de la cola y tiempo de creación de productos.
-- **Borrar los tokens vencidos o revocados** con una tarea periódica.
 - Algunas limitaciones conocidas, documentadas en `DECISIONS.md`:
   - un worker que se cae de golpe pierde el job en curso (hay una red de seguridad al arrancar, y el patrón *transactional outbox* lo resolvería del todo);
   - si la base está caída durante todos los reintentos, la solicitud queda `pending` hasta reiniciar el worker;
   - `/health` combina *liveness* y *readiness*.
+
+**Fuera del alcance:** el ciclo de vida de los tokens más allá del login y el logout, como la renovación con refresh tokens o la limpieza de los vencidos. En un sistema real lo resolvería un servicio de autenticación dedicado.
 
 ## Autor
 
