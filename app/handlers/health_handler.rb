@@ -3,7 +3,7 @@
 # Reports whether the app can do its work: 200 when PostgreSQL and Redis
 # answer, 503 with the one that failed otherwise (see DECISIONS.md, decision 27).
 class HealthHandler
-  def call(_env)
+  def call(_request)
     checks = {
       database: check { DB.get(1) },
       redis: check { Sidekiq.redis { |connection| connection.call("PING") } }
@@ -11,7 +11,7 @@ class HealthHandler
     healthy = checks.values.all?("ok")
 
     body = { status: healthy ? "ok" : "error", checks: checks }
-    [healthy ? 200 : 503, { "content-type" => "application/json" }, [JSON.generate(body)]]
+    JsonResponse.build(healthy ? 200 : 503, body)
   end
 
   private
