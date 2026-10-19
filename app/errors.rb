@@ -57,6 +57,14 @@ class ApiError < StandardError
     end
   end
 
+  class NameAlreadyTaken < ApiError
+    MESSAGE = "Ya tenés un producto con ese nombre."
+
+    def initialize
+      super(status: 409, code: "name_already_taken", message: MESSAGE)
+    end
+  end
+
   class ValidationFailed < ApiError
     def initialize(details)
       super(status: 422, code: "validation_failed", message: "Los datos enviados no son válidos.", details: details)
