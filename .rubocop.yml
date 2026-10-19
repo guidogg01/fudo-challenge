@@ -20,3 +20,8 @@ Style/StringLiterals:
 # Splitting that into one example per line would repeat the request each time.
 RSpec/MultipleExpectations:
   Max: 5
+
+# Specs under spec/db test the schema and the seeds, which are not classes.
+RSpec/DescribeClass:
+  Exclude:
+    - "spec/db/**/*"

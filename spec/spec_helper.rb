@@ -1,6 +1,14 @@
 # frozen_string_literal: true
 
 ENV["RACK_ENV"] = "test"
+# The lowest cost bcrypt accepts: hashing stays fast in tests.
+ENV["BCRYPT_COST"] = "4"
+
+# The models need the tables, so the test database is migrated before the
+# application is loaded.
+require_relative "../config/database"
+Sequel.extension :migration
+Sequel::Migrator.run(DB, File.expand_path("../db/migrations", __dir__))
 
 require_relative "../config/boot"
 require "rack/builder"
@@ -21,6 +29,14 @@ end
 
 RSpec.configure do |config|
   config.include RackAppHelper, type: :request
+
+  # Every example runs inside a transaction that is rolled back at the end,
+  # so examples never see rows written by other examples. auto_savepoint
+  # turns the transactions opened inside an example into savepoints, so a
+  # failed insert does not break the rest of the example.
+  config.around do |example|
+    DB.transaction(rollback: :always, auto_savepoint: true) { example.run }
+  end
 
   config.expect_with :rspec do |expectations|
     expectations.include_chain_clauses_in_custom_matcher_descriptions = true
