@@ -6,5 +6,8 @@ Sidekiq.configure_server do |config|
   # que un producto aparece entre 5 y unos 6,5 segundos después del pedido (decisión 12).
   config.average_scheduled_poll_interval = 1
 
+  # Un thread del worker por conexión del pool, así ningún job espera una conexión libre.
+  config.concurrency = DB.pool.max_size
+
   config.on(:startup) { RequeueStaleRequests.call }
 end

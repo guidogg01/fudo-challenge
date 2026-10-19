@@ -6,7 +6,7 @@ database_url_key = ENV.fetch("RACK_ENV", "development") == "test" ? "TEST_DATABA
 
 Sequel.default_timezone = :utc
 
-# Una conexión por thread de Puma, así ningún request espera una conexión libre.
+# Una conexión por thread de Puma; el worker usa la misma cantidad de threads (config/sidekiq.rb).
 # Sin los timeouts, una base que deja de responder (una partición de red) deja
 # colgado al request por minutos: connect_timeout corta las conexiones nuevas y
 # tcp_user_timeout (milisegundos, de libpq) las que ya están abiertas.
