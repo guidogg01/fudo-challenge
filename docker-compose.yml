@@ -9,6 +9,9 @@ x-ruby-service: &ruby-service
     PORT: ${PORT:-9292}
     PUMA_MAX_THREADS: ${PUMA_MAX_THREADS:-5}
     REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+    DATABASE_URL: ${DATABASE_URL:-postgres://fudo:fudo@db:5432/fudo-challenge}
+    TEST_DATABASE_URL: ${TEST_DATABASE_URL:-postgres://fudo:fudo@db:5432/fudo-challenge-test}
+    BCRYPT_COST: ${BCRYPT_COST:-12}
   # Mounting the code lets tests and RuboCop run on the latest edits
   # without rebuilding the image.
   volumes:
@@ -22,6 +25,9 @@ x-ruby-service: &ruby-service
 services:
   app:
     <<: *ruby-service
+    # Brings the schema up to date before serving, so a fresh clone works
+    # with a plain "docker compose up". Seeding stays a manual step.
+    command: ["sh", "-c", "bundle exec rake db:migrate && exec bundle exec puma -C config/puma.rb"]
     ports:
       - "9292:9292"
     healthcheck:
@@ -33,6 +39,15 @@ services:
   worker:
     <<: *ruby-service
     command: ["bundle", "exec", "sidekiq", "-r", "./config/boot.rb"]
+    # The worker loads the models, so it also waits until the app has migrated
+    # the schema. This list replaces the shared one, so it repeats db and redis.
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      app:
+        condition: service_healthy
 
   db:
     image: postgres:18.6-alpine
@@ -45,6 +60,8 @@ services:
       - "5433:5432"
     volumes:
       - db-data:/var/lib/postgresql
+      # Creates the test database the first time the volume is initialized.
+      - ./db/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "fudo", "-d", "fudo-challenge"]
       interval: 5s
