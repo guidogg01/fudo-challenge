@@ -1,0 +1,474 @@
+openapi: 3.0.3
+info:
+  title: Fudo Challenge - API de productos
+  version: 0.1.0
+  description: |
+    API REST construida sobre Rack (sin frameworks web) para el desafío técnico de Fudo.
+
+    **Autenticación.** Se obtiene un token con `POST /auth/login` y se envía en cada request
+    privado como `Authorization: Bearer <token>`. El token vence a las 24 horas y se puede
+    revocar con `POST /auth/logout`.
+
+    **Creación asíncrona.** `POST /products` no crea el producto: registra una *solicitud de
+    creación* y responde `202 Accepted`. El producto se crea en segundo plano y queda
+    disponible **no antes de 5 segundos** después. El estado se consulta en
+    `GET /product_requests/{id}` (la URL viene en el header `Location`).
+
+    **Compresión.** Si el cliente envía `Accept-Encoding: gzip`, la respuesta viaja comprimida
+    con gzip (`Content-Encoding: gzip`).
+
+    **Errores.** Todos los errores tienen el mismo formato (`Error`). El campo `code` es un
+    identificador estable para programar contra él; `message` es un texto en español para
+    personas.
+
+    **Request id.** Cada respuesta incluye `X-Request-Id`. Si el cliente lo envía, se respeta.
+servers:
+  - url: http://localhost:9292
+    description: Docker Compose local
+tags:
+  - name: Autenticación
+  - name: Productos
+  - name: Solicitudes de creación
+  - name: Otros
+
+paths:
+  /auth/login:
+    post:
+      tags: [Autenticación]
+      summary: Iniciar sesión
+      description: Valida usuario y contraseña y devuelve un token Bearer. El token se muestra una sola vez.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+            example: { username: demo, password: demo1234 }
+      responses:
+        '200':
+          description: Credenciales correctas.
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Token' }
+              example:
+                data:
+                  token: 3q2-7wEXAMPLEtokenDoNotUse_9Zk4pL0aYfR2uVbN8sTqWe
+                  token_type: Bearer
+                  expires_at: '2026-10-20T02:48:38Z'
+        '400': { $ref: '#/components/responses/InvalidJson' }
+        '401':
+          description: Usuario o contraseña incorrectos. El mensaje es el mismo exista o no el usuario.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example:
+                error: { code: invalid_credentials, message: Usuario o contraseña incorrectos., details: [] }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /auth/logout:
+    post:
+      tags: [Autenticación]
+      summary: Cerrar sesión
+      description: Revoca el token usado en este request. A partir de ese momento el token devuelve 401.
+      responses:
+        '204':
+          description: Token revocado. Sin cuerpo.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /products:
+    post:
+      tags: [Productos]
+      summary: Solicitar la creación de un producto (asíncrona)
+      description: |
+        Valida el input, registra una solicitud de creación y la encola. **No** confirma que el
+        producto exista. El producto queda disponible no antes de 5 segundos después.
+
+        El nombre se normaliza (se recortan los extremos y se colapsan los espacios repetidos) y
+        es único por usuario **sin distinguir mayúsculas**: "Mesa" y "mesa" son el mismo nombre.
+        Si el usuario ya tiene un producto con ese nombre se responde `409`. Si dos solicitudes
+        con el mismo nombre se procesan casi a la vez, una termina `completed` y la otra
+        `failed` con `name_already_taken`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProductInput' }
+            example: { name: Mesa de roble, description: Mesa para 4 personas, price_cents: 150000, quantity: 3 }
+      responses:
+        '202':
+          description: Solicitud aceptada. El producto todavía no existe.
+          headers:
+            Location:
+              description: URL para consultar el estado de la solicitud.
+              schema: { type: string, example: /product_requests/7d9f2c1e-8a4b-4c3d-9e2f-1a2b3c4d5e6f }
+            X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/ProductRequest' }
+              example:
+                data:
+                  id: 7d9f2c1e-8a4b-4c3d-9e2f-1a2b3c4d5e6f
+                  status: pending
+                  product_id: null
+                  product_url: null
+                  error: null
+                  created_at: '2026-10-19T02:48:38Z'
+                  processed_at: null
+        '400': { $ref: '#/components/responses/InvalidJson' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409':
+          description: El usuario ya tiene un producto con ese nombre.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example:
+                error: { code: name_already_taken, message: Ya tenés un producto con ese nombre., details: [] }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+    get:
+      tags: [Productos]
+      summary: Listar mis productos
+      description: |
+        Devuelve solo los productos **ya creados** del usuario autenticado, ordenados por `id`.
+        Las solicitudes pendientes no aparecen. Una página fuera de rango devuelve `data: []`.
+      parameters:
+        - name: page
+          in: query
+          description: Número de página (desde 1).
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: per_page
+          in: query
+          description: Cantidad por página (máximo 100).
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: Página de productos.
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Product' }
+                  meta: { $ref: '#/components/schemas/PaginationMeta' }
+              example:
+                data:
+                  - id: 42
+                    name: Mesa de roble
+                    description: Mesa para 4 personas
+                    price_cents: 150000
+                    quantity: 3
+                    created_at: '2026-10-19T02:48:44Z'
+                    updated_at: '2026-10-19T02:48:44Z'
+                meta: { page: 1, per_page: 20, total: 1, total_pages: 1 }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /products/{id}:
+    get:
+      tags: [Productos]
+      summary: Ver uno de mis productos
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: El producto.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Product' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /product_requests/{id}:
+    get:
+      tags: [Solicitudes de creación]
+      summary: Consultar el estado de una solicitud de creación
+      description: |
+        - `pending`: todavía no se procesó.
+        - `completed`: el producto existe; se informan `product_id` y `product_url`.
+        - `failed`: no se pudo crear; el motivo está en `error`.
+
+        Una solicitud de otro usuario responde `404` (no `403`), para no revelar que existe.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Estado de la solicitud.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/ProductRequest' }
+              examples:
+                completed:
+                  summary: Completada
+                  value:
+                    data:
+                      id: 7d9f2c1e-8a4b-4c3d-9e2f-1a2b3c4d5e6f
+                      status: completed
+                      product_id: 42
+                      product_url: /products/42
+                      error: null
+                      created_at: '2026-10-19T02:48:38Z'
+                      processed_at: '2026-10-19T02:48:44Z'
+                failed:
+                  summary: Fallida por nombre repetido
+                  value:
+                    data:
+                      id: 0b1c2d3e-4f50-4617-8293-a4b5c6d7e8f9
+                      status: failed
+                      product_id: null
+                      product_url: null
+                      error: { code: name_already_taken, message: Ya tenés un producto con ese nombre. }
+                      created_at: '2026-10-19T02:48:38Z'
+                      processed_at: '2026-10-19T02:48:44Z'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /AUTHORS:
+    get:
+      tags: [Otros]
+      summary: Archivo estático con el autor
+      description: Público. Se puede guardar en caché durante 24 horas.
+      security: []
+      responses:
+        '200':
+          description: Nombre y apellido del autor.
+          headers:
+            Cache-Control:
+              schema: { type: string, example: 'public, max-age=86400' }
+            Last-Modified:
+              schema: { type: string, example: 'Sun, 19 Oct 2026 02:00:00 GMT' }
+          content:
+            text/plain:
+              schema: { type: string, example: Guido Greco }
+        '304':
+          description: No cambió desde la fecha enviada en `If-Modified-Since`. Sin cuerpo.
+
+  /health:
+    get:
+      tags: [Otros]
+      summary: Estado de la app y sus dependencias
+      security: []
+      responses:
+        '200':
+          description: La app, la base y Redis responden.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+              example: { status: ok, checks: { database: ok, redis: ok } }
+        '503':
+          description: Alguna dependencia no responde.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+              example: { status: error, checks: { database: ok, redis: error } }
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Token opaco obtenido en `POST /auth/login`.
+
+  headers:
+    X-Request-Id:
+      description: Identificador del request (el enviado por el cliente o uno generado).
+      schema: { type: string }
+
+  schemas:
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string, example: demo }
+        password: { type: string, format: password, example: demo1234 }
+
+    Token:
+      type: object
+      required: [token, token_type, expires_at]
+      properties:
+        token: { type: string, description: Token opaco. Guardalo; no se puede volver a consultar. }
+        token_type: { type: string, enum: [Bearer] }
+        expires_at: { type: string, format: date-time }
+
+    ProductInput:
+      type: object
+      required: [name, price_cents, quantity]
+      description: Los campos desconocidos se ignoran (por ejemplo, un `user_id` en el body no tiene efecto).
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Se recortan los extremos y se colapsan los espacios repetidos. Único por usuario sin distinguir mayúsculas.
+        description:
+          type: string
+          nullable: true
+          maxLength: 500
+        price_cents:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Precio en centavos (entero). Por ejemplo, $1.500,00 es 150000. Nunca decimales.
+        quantity:
+          type: integer
+          format: int32
+          minimum: 0
+
+    Product:
+      type: object
+      required: [id, name, description, price_cents, quantity, created_at, updated_at]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        price_cents: { type: integer, format: int64 }
+        quantity: { type: integer, format: int32 }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    ProductRequest:
+      type: object
+      required: [id, status, product_id, product_url, error, created_at, processed_at]
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [pending, completed, failed] }
+        product_id: { type: integer, format: int64, nullable: true }
+        product_url: { type: string, nullable: true, example: /products/42 }
+        error:
+          type: object
+          nullable: true
+          required: [code, message]
+          properties:
+            code: { type: string, enum: [name_already_taken, creation_failed] }
+            message: { type: string }
+        created_at: { type: string, format: date-time }
+        processed_at: { type: string, format: date-time, nullable: true }
+
+    PaginationMeta:
+      type: object
+      required: [page, per_page, total, total_pages]
+      properties:
+        page: { type: integer }
+        per_page: { type: integer }
+        total: { type: integer, description: Cantidad total de productos del usuario. }
+        total_pages: { type: integer }
+
+    Health:
+      type: object
+      required: [status, checks]
+      properties:
+        status: { type: string, enum: [ok, error] }
+        checks:
+          type: object
+          properties:
+            database: { type: string, enum: [ok, error] }
+            redis: { type: string, enum: [ok, error] }
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, details]
+          properties:
+            code:
+              type: string
+              enum:
+                - invalid_json
+                - invalid_credentials
+                - unauthorized
+                - not_found
+                - method_not_allowed
+                - name_already_taken
+                - unsupported_media_type
+                - validation_failed
+                - internal_error
+            message: { type: string, description: Mensaje en español para personas. }
+            details:
+              type: array
+              description: Detalle por campo (solo en `validation_failed`; vacío en el resto).
+              items:
+                type: object
+                required: [field, issue, message]
+                properties:
+                  field: { type: string, example: name }
+                  issue:
+                    type: string
+                    enum: [required, blank, too_long, invalid_type, negative, out_of_range]
+                  message: { type: string, example: El nombre no puede superar los 100 caracteres. }
+
+  responses:
+    InvalidJson:
+      description: El cuerpo no es JSON válido.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            error: { code: invalid_json, message: El cuerpo del request no es un JSON válido., details: [] }
+    Unauthorized:
+      description: Falta el token, o es inválido, está vencido o fue revocado.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            error: { code: unauthorized, message: Necesitás un token válido para acceder., details: [] }
+    NotFound:
+      description: No existe, o pertenece a otro usuario.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            error: { code: not_found, message: No se encontró el recurso., details: [] }
+    UnsupportedMediaType:
+      description: 'Falta el header `Content-Type: application/json`.'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            error: { code: unsupported_media_type, message: 'El Content-Type debe ser application/json.', details: [] }
+    ValidationFailed:
+      description: Hay campos inválidos. `details` dice cuáles y por qué.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            error:
+              code: validation_failed
+              message: Los datos enviados no son válidos.
+              details:
+                - { field: name, issue: too_long, message: El nombre no puede superar los 100 caracteres. }
+                - { field: price_cents, issue: invalid_type, message: El precio debe ser un número entero de centavos. }
