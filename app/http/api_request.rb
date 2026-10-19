@@ -8,6 +8,7 @@ class ApiRequest < Rack::Request
   PATH_PARAMS_KEY = "app.path_params"
   JSON_BODY_KEY = "app.json_body"
   CURRENT_USER_KEY = "app.current_user"
+  AUTH_TOKEN_KEY = "app.auth_token"
 
   def path_params
     get_header(PATH_PARAMS_KEY) || {}
@@ -31,5 +32,14 @@ class ApiRequest < Rack::Request
 
   def current_user=(user)
     set_header(CURRENT_USER_KEY, user)
+  end
+
+  # The token that authenticated this request (POST /auth/logout revokes it).
+  def auth_token
+    get_header(AUTH_TOKEN_KEY)
+  end
+
+  def auth_token=(token)
+    set_header(AUTH_TOKEN_KEY, token)
   end
 end

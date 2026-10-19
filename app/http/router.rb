@@ -36,9 +36,10 @@ class Router
     match
   end
 
-  # Private routes stay closed until the token check exists: failing closed
-  # means a new private route can never be reached by accident.
-  def authenticate(_request)
-    raise ApiError::Unauthorized
+  # The user always comes from the token, never from the body or the URL.
+  def authenticate(request)
+    auth_token = TokenAuthentication.call(request.get_header("HTTP_AUTHORIZATION"))
+    request.auth_token = auth_token
+    request.current_user = auth_token.user
   end
 end
