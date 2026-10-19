@@ -29,9 +29,9 @@ services:
     # con un simple "docker compose up". El seed sigue siendo un paso manual.
     command: ["sh", "-c", "bundle exec rake db:migrate && exec bundle exec puma -C config/puma.rb"]
     ports:
-      - "9292:9292"
+      - "${PORT:-9292}:${PORT:-9292}"
     healthcheck:
-      test: ["CMD", "ruby", "-rnet/http", "-e", "exit Net::HTTP.get_response(URI('http://localhost:9292/health')).is_a?(Net::HTTPSuccess)"]
+      test: ["CMD", "ruby", "-rnet/http", "-e", "exit Net::HTTP.get_response(URI('http://localhost:' + ENV.fetch('PORT', '9292') + '/health')).is_a?(Net::HTTPSuccess)"]
       interval: 5s
       timeout: 3s
       retries: 10
