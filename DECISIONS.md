@@ -46,6 +46,9 @@ Registro de las decisiones del proyecto, en formato ADR liviano: **Contexto → 
 **Fallas**
 30. Qué pasa si algo se muere a mitad de camino
 
+**Entrada**
+31. Límites y saneamiento del input
+
 ---
 
 ## 1. Rack puro con un router propio
@@ -56,7 +59,7 @@ Registro de las decisiones del proyecto, en formato ADR liviano: **Contexto → 
 
 **Alternativas consideradas.** Roda, Hanami o Grape: son frameworks web más chicos y violan el espíritu del enunciado. `Rack::Builder#map` sirve para prefijos, pero no maneja métodos ni parámetros como `:id`.
 
-**Consecuencias.** Hay que resolver a mano el 404, el 405 con `Allow` y la extracción de parámetros de la ruta. Son pocas líneas, y es justo lo que el challenge quiere ver.
+**Consecuencias.** Hay que resolver a mano el 404, el 405 con `Allow` y la extracción de parámetros de la ruta. Son pocas líneas, y es justo lo que el challenge quiere ver. `HEAD` se atiende como `GET` sin body (`Rack::Head`), así los monitores y cachés que usan HEAD no reciben un 405.
 
 ## 2. Puma como servidor
 
@@ -116,7 +119,7 @@ Registro de las decisiones del proyecto, en formato ADR liviano: **Contexto → 
 
 **Alternativas consideradas.** SHA-256 con salt: es rápido, y por eso una GPU prueba miles de millones de contraseñas por segundo si se filtra la base. Argon2: más moderno, pero menos estándar en Ruby y con más parámetros que explicar.
 
-**Consecuencias.** Verificar una contraseña tarda decenas de milisegundos a propósito. Es aceptable en el login, que es poco frecuente.
+**Consecuencias.** Verificar una contraseña tarda decenas de milisegundos a propósito. Es aceptable en el login, que es poco frecuente. bcrypt usa solo los primeros 72 bytes de la contraseña y el resto se ignora en silencio (verificado en bcrypt 3.1.22). Con contraseñas elegidas por personas no es un problema real, pero queda anotado.
 
 ## 8. Tokens opacos con hash SHA-256 en lugar de JWT
 
@@ -128,7 +131,7 @@ Registro de las decisiones del proyecto, en formato ADR liviano: **Contexto → 
 - **JWT:** no necesita consultar la base, pero no se puede revocar antes de que venza sin agregar una lista negra, que es justamente una consulta a la base.
 - **Guardar el token en claro:** si se filtra la base, todos los tokens quedan usables.
 
-**Consecuencias.** Hay una consulta por request (por índice único, muy barata). SHA-256 alcanza porque el token tiene 256 bits al azar: no se puede adivinar por fuerza bruta, a diferencia de una contraseña.
+**Consecuencias.** Hay dos consultas por request autenticado, las dos por índice y muy baratas: el token, por su `token_digest` único, y después su usuario, por clave primaria. Se podrían unir en una sola con un join, pero no vale la complejidad para este volumen. SHA-256 alcanza porque el token tiene 256 bits al azar: no se puede adivinar por fuerza bruta, a diferencia de una contraseña. Los tokens vencidos o revocados no se borran: una limpieza periódica queda como próximo paso.
 
 ## 9. La autenticación la decide el router
 
@@ -138,7 +141,7 @@ Registro de las decisiones del proyecto, en formato ADR liviano: **Contexto → 
 
 **Alternativas consideradas.** Un middleware de autenticación con una lista de rutas públicas: duplica el conocimiento de las rutas en dos lugares.
 
-**Consecuencias.** Es imposible agregar una ruta sin decidir explícitamente si es pública.
+**Consecuencias.** Es imposible agregar una ruta sin decidir explícitamente si es pública. Los 401 no llevan el header `WWW-Authenticate: Bearer` que recomienda el RFC 6750: el contrato no lo usa y el cliente distingue los casos por `error.code`.
 
 ## 10. Login sin pistas sobre qué usuarios existen
 
@@ -170,7 +173,7 @@ Registro de las decisiones del proyecto, en formato ADR liviano: **Contexto → 
 
 **Alternativas consideradas.** Dejar el valor por defecto (el producto podría tardar hasta unos 12,5 s). `sleep(5)` dentro del job (ocupa un thread del worker sin hacer nada y no escala).
 
-**Consecuencias.** Una consulta liviana a Redis por segundo. Queda documentado en el README que la demora es aproximada.
+**Consecuencias.** Una consulta liviana a Redis por segundo. Queda documentado en el README que la demora es aproximada. Justo después de reiniciar el worker, Sidekiq espera entre 10 y 15 segundos antes de su primera revisión de jobs programados (`initial_wait` de `Sidekiq::Scheduled::Poller`, verificado en 8.1.7), así que el primer producto después de un reinicio puede tardar unos 10 segundos.
 
 ## 13. Job idempotente con `SELECT ... FOR UPDATE`
 
@@ -192,7 +195,7 @@ Registro de las decisiones del proyecto, en formato ADR liviano: **Contexto → 
 
 **Alternativas consideradas.** Los 25 reintentos por defecto de Sidekiq (unos 21 días: demasiado para una creación que el usuario espera ver en segundos). Sin reintentos (un error transitorio haría fallar la creación).
 
-**Consecuencias.** Toda solicitud termina en `completed` o en `failed`, en unos pocos minutos como máximo.
+**Consecuencias.** Toda solicitud termina en `completed` o en `failed` (con el mensaje "No se pudo crear el producto."), en unos pocos minutos como máximo. La excepción: si la base está caída durante todos los reintentos (unos 7 a 9 minutos), tampoco se la puede marcar `failed`, y la solicitud queda `pending` hasta que el worker se reinicie y la vuelva a encolar (decisión 30).
 
 ## 15. Duplicados en vuelo: el 409 temprano solo mira productos creados
 
@@ -240,7 +243,7 @@ Registro de las decisiones del proyecto, en formato ADR liviano: **Contexto → 
 
 **Contexto.** La app valida el input, pero un bug, un script o una consola pueden saltearse la validación.
 
-**Decisión.** `NOT NULL`, `CHECK` de longitudes y de valores no negativos, `CHECK` de estados válidos y `CHECK` de que "completed" y "tiene producto" van juntos.
+**Decisión.** `NOT NULL`, `CHECK` de longitudes y de valores no negativos, `CHECK` de estados válidos y `CHECK` de que "completed" y "tiene producto" van juntos, y de que "failed" y "tiene `error_code`" también.
 
 **Alternativas consideradas.** Validar solo en la app (más simple, pero la integridad depende de que nadie se equivoque nunca).
 
@@ -288,7 +291,7 @@ Registro de las decisiones del proyecto, en formato ADR liviano: **Contexto → 
 - Normalizar en silencio (por ejemplo, `per_page=500` → 100): el cliente no se entera de que pidió algo imposible.
 - Paginación por cursor (`?after=42`): más eficiente con tablas enormes y estable ante inserciones, pero más compleja de explicar y de usar. Queda como próximo paso.
 
-**Consecuencias.** `OFFSET` grandes son lentos en tablas muy grandes, y el `COUNT(*)` cuesta una consulta extra. Es aceptable para este volumen.
+**Consecuencias.** `OFFSET` grandes son lentos en tablas muy grandes, y el `COUNT(*)` cuesta una consulta extra. Es aceptable para este volumen. Un query string que ni siquiera se puede leer (`?page=%`, `?page=%FF`) es otra cosa: 400 `invalid_query`, porque no hay un campo concreto que señalar en el detalle.
 
 ## 24. `Content-Type: application/json` obligatorio (415)
 
@@ -298,7 +301,7 @@ Registro de las decisiones del proyecto, en formato ADR liviano: **Contexto → 
 
 **Alternativas consideradas.** Intentar parsear cualquier cosa (errores más confusos para el cliente).
 
-**Consecuencias.** Los errores del cliente se distinguen bien: 415 (formato equivocado), 400 (JSON roto) y 422 (JSON correcto con datos inválidos).
+**Consecuencias.** Los errores del cliente se distinguen bien: 415 (formato equivocado), 400 (JSON roto) y 422 (JSON correcto con datos inválidos). Además, el body tiene un tope de 16 KB (decisión 31).
 
 ## 25. `GET /products/{id}`
 
@@ -350,7 +353,7 @@ Registro de las decisiones del proyecto, en formato ADR liviano: **Contexto → 
 
 **Alternativas consideradas.** Logs en texto libre (difíciles de filtrar y agregar). Levantar OpenSearch, Kibana o Grafana (sobre-ingeniería para el challenge).
 
-**Consecuencias.** Los logs están listos para enviarse a OpenSearch o Kibana sin transformarlos. Las métricas y el tracing (OpenTelemetry) quedan como próximo paso.
+**Consecuencias.** Los logs están listos para enviarse a OpenSearch o Kibana sin transformarlos. Las métricas y el tracing (OpenTelemetry) quedan como próximo paso. El re-encolado al arrancar el worker (decisión 30) no conoce el `request_id` original, así que en ese caso el job loguea `request_id: null`. Los middlewares reciben el logger como parámetro para que los tests verifiquen sus logs; los handlers, el job y los servicios usan la constante `LOGGER`, que los tests reemplazan con `stub_const`.
 
 ## 30. Qué pasa si algo se muere a mitad de camino
 
@@ -371,3 +374,20 @@ Registro de las decisiones del proyecto, en formato ADR liviano: **Contexto → 
 **Consecuencias.** Ninguna solicitud queda `pending` para siempre mientras el worker se vuelva a levantar, y nunca hay productos duplicados ni a medias. Queda como próximo paso el chequeo periódico, el outbox y `Idempotency-Key`.
 
 *(Confirmada por Guido el 2026-10-19.)*
+
+## 31. Límites y saneamiento del input
+
+**Contexto.** Ningún input del cliente debería terminar en un 500: un 500 dice "el servidor falló" y además ensucia los logs y las alertas. Y un endpoint público, como el login, no debería obligar al servidor a leer megas a memoria.
+
+**Decisión.**
+- El body JSON tiene un tope de 16 KB → 413 `payload_too_large`. Se leen como máximo 16 KB + 1 byte, así que un `Content-Length` que miente no lo saltea.
+- Un body que no es UTF-8 válido, o que tiene el carácter nulo (`\u0000`, que el `text` de PostgreSQL no acepta) → 400 `invalid_json`.
+- Un query string mal formado (`?page=%`, `?page[]=1&page[x]=2`) o con bytes que no son UTF-8 (`?page=%FF`) → 400 `invalid_query`.
+- Un id de ruta que no puede existir (`/products/abc`, un número que no entra en un `bigint`, un UUID mal formado) → 404 sin consultar la base.
+- Números de `price_cents` y `quantity` más grandes que sus columnas → 422 `out_of_range`.
+
+**Alternativas consideradas.** Dejar que la base rechace estos casos: termina igual, pero con un 500 y un stack trace en el log por cada request inválido. Limitar el tamaño en Puma (`http_content_length_limit`): responde 413, pero con su propio formato y no con el de la API.
+
+**Consecuencias.** Todo input del cliente termina en 400, 404, 413, 415 o 422 con el formato de error de siempre. Los 500 quedan solo para errores reales del servidor.
+
+*(Surgida de las revisiones de código, 2026-10-19.)*
