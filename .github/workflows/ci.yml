@@ -52,3 +52,25 @@ jobs:
       # spec/spec_helper.rb migra la base de test antes de correr la suite.
       - name: RSpec
         run: bundle exec rspec
+
+  # Prueba de punta a punta: el mismo stack que en local (app, worker, PostgreSQL y Redis)
+  # con la colección de Postman corrida por Newman.
+  newman:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Start the stack
+        run: docker compose up --build --detach --wait app worker
+
+      - name: Seed the demo user
+        run: docker compose exec -T app bundle exec rake db:seed
+
+      - name: Run the Postman collection
+        run: >-
+          npx --yes newman@6.2.2 run postman/fudo-challenge.postman_collection.json
+          --environment postman/local.postman_environment.json
+
+      - name: Show the logs
+        if: failure()
+        run: docker compose logs app worker
