@@ -27,5 +27,7 @@ RSpec/DescribeClass:
     - "spec/db/**/*"
 
 # Un hash esperado de varias líneas es una sola aserción, no varias líneas de lógica.
+# Los ejemplos de punta a punta (request, después job, después consulta) necesitan unas líneas más.
 RSpec/ExampleLength:
+  Max: 8
   CountAsOne: ["array", "hash", "heredoc", "method_call"]

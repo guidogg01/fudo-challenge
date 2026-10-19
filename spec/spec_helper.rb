@@ -16,6 +16,8 @@ require_relative "../config/boot"
 require "rack/builder"
 require "rack/test"
 
+Sidekiq.testing!(:fake)
+
 module RackAppHelper
   include Rack::Test::Methods
 
@@ -36,6 +38,7 @@ RSpec.configure do |config|
   config.around do |example|
     DB.transaction(rollback: :always, auto_savepoint: true) { example.run }
   end
+  config.before { Sidekiq::Job.clear_all }
 
   config.expect_with :rspec do |expectations|
     expectations.include_chain_clauses_in_custom_matcher_descriptions = true
