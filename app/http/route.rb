@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-# `public:` has no default on purpose: adding a route forces the decision of
-# whether it needs authentication (decision 9).
+# `public:` no tiene valor por defecto a propósito: agregar una ruta obliga a decidir
+# si necesita autenticación (decisión 9).
 class Route
   attr_reader :verb, :handler
 
@@ -24,7 +24,7 @@ class Route
 
   private
 
-  # "/products/:id" becomes /\A\/products\/(?<id>[^\/]+)\z/
+  # "/products/:id" se convierte en /\A\/products\/(?<id>[^\/]+)\z/
   def compile(pattern)
     segments = pattern.split("/").map do |segment|
       segment.start_with?(":") ? "(?<#{segment.delete_prefix(':')}>[^/]+)" : Regexp.escape(segment)

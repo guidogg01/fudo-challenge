@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Never logs headers or bodies: they can carry passwords and tokens.
+# Nunca loguea headers ni bodies: pueden llevar contraseñas y tokens.
 class RequestLogger
   def initialize(app, logger:)
     @app = app

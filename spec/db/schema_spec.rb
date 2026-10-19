@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-# The database constraints are the guarantee behind the app's validations
-# (decisions 16 and 19), so they are tested directly.
+# Las constraints de la base son la garantía detrás de las validaciones de la app
+# (decisiones 16 y 19), por eso se prueban directamente.
 RSpec.describe "Database schema" do
   def create_user(username = "ana")
     User.create(username: username, password_digest: "not-a-real-digest")

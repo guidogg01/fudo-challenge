@@ -6,7 +6,7 @@ database_url_key = ENV.fetch("RACK_ENV", "development") == "test" ? "TEST_DATABA
 
 Sequel.default_timezone = :utc
 
-# One connection per Puma thread, so no request waits for a free connection.
+# Una conexión por thread de Puma, así ningún request espera una conexión libre.
 DB = Sequel.connect(
   ENV.fetch(database_url_key),
   max_connections: Integer(ENV.fetch("PUMA_MAX_THREADS", 5))

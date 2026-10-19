@@ -5,13 +5,13 @@ require "securerandom"
 module Login
   TOKEN_TTL_SECONDS = Integer(ENV.fetch("TOKEN_TTL_SECONDS", 86_400))
 
-  # Used when the username does not exist, so a failed login runs bcrypt
-  # just like a wrong password does and both take the same time.
+  # Se usa cuando el usuario no existe, para que un login fallido corra bcrypt
+  # igual que con una contraseña incorrecta y los dos tarden lo mismo.
   DUMMY_PASSWORD_DIGEST = User.digest_password(SecureRandom.hex(16))
 
   Result = Data.define(:token, :user, :expires_at)
 
-  # The only moment the token exists in clear text outside the client.
+  # El único momento en que el token existe en claro fuera del cliente.
   def self.call(username, password)
     user = User.find_by_username(username)
     password_matches = BCrypt::Password.new(user&.password_digest || DUMMY_PASSWORD_DIGEST) == password
@@ -20,8 +20,8 @@ module Login
     issue_token(user)
   end
 
-  # 32 random bytes cannot be guessed, so a fast hash such as SHA-256 is
-  # enough to protect them at rest, unlike a password.
+  # 32 bytes al azar no se pueden adivinar, así que un hash rápido como SHA-256
+  # alcanza para protegerlos en la base, a diferencia de una contraseña.
   def self.issue_token(user)
     token = SecureRandom.urlsafe_base64(32)
     auth_token = AuthToken.create(

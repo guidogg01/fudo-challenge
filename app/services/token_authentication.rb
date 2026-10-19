@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-# Missing, malformed, unknown, expired and revoked tokens all get the same
-# 401, so the response says nothing about which one it was.
+# Token ausente, mal formado, inexistente, vencido o revocado: todos reciben el mismo
+# 401, así la respuesta no revela cuál de los casos fue.
 module TokenAuthentication
-  # The scheme name is case-insensitive (RFC 7235, section 2.1).
+  # El nombre del esquema no distingue mayúsculas (RFC 7235, sección 2.1).
   BEARER = /\ABearer +(\S+)\z/i
 
   def self.call(authorization_header)

@@ -11,7 +11,7 @@ class ErrorHandler
   rescue ApiError => e
     error_response(e.status, e.code, e.message, e.details, e.headers)
   rescue StandardError => e
-    # The client gets a generic 500; the details go only to the log.
+    # El cliente recibe un 500 genérico; el detalle va solo al log.
     log_unexpected(env, e)
     error_response(500, "internal_error", "Ocurrió un error inesperado.", [], {})
   end

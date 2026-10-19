@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Demo data for trying the API by hand. Running it again changes nothing.
+# Datos de demo para probar la API a mano. Correrlo de nuevo no cambia nada.
 
 username = "demo"
 password = "demo1234"

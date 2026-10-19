@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-# ErrorHandler is the only place that turns these into HTTP responses
-# (decision 20). `code` is a stable English identifier; `message` is
-# Spanish text for people (decision 21).
+# ErrorHandler es el único lugar que convierte estos errores en respuestas HTTP
+# (decisión 20). `code` es un identificador estable en inglés; `message` es
+# texto en español para personas (decisión 21).
 class ApiError < StandardError
   attr_reader :status, :code, :details, :headers
 
@@ -27,8 +27,8 @@ class ApiError < StandardError
   end
 
   class InvalidCredentials < ApiError
-    # The same answer whether the user does not exist or the password is wrong
-    # (decision 10).
+    # La misma respuesta si el usuario no existe o si la contraseña es incorrecta
+    # (decisión 10).
     def initialize
       super(status: 401, code: "invalid_credentials", message: "Usuario o contraseña incorrectos.")
     end

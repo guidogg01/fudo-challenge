@@ -12,8 +12,8 @@ x-ruby-service: &ruby-service
     BCRYPT_COST: ${BCRYPT_COST:-12}
     TOKEN_TTL_SECONDS: ${TOKEN_TTL_SECONDS:-86400}
     LOG_LEVEL: ${LOG_LEVEL:-info}
-  # Mounting the code lets tests and RuboCop run on the latest edits
-  # without rebuilding the image.
+  # Montar el código permite correr los tests y RuboCop sobre los últimos cambios
+  # sin reconstruir la imagen.
   volumes:
     - .:/app
   depends_on:
@@ -25,8 +25,8 @@ x-ruby-service: &ruby-service
 services:
   app:
     <<: *ruby-service
-    # Brings the schema up to date before serving, so a fresh clone works
-    # with a plain "docker compose up". Seeding stays a manual step.
+    # Pone el esquema al día antes de atender, así un clon nuevo anda
+    # con un simple "docker compose up". El seed sigue siendo un paso manual.
     command: ["sh", "-c", "bundle exec rake db:migrate && exec bundle exec puma -C config/puma.rb"]
     ports:
       - "9292:9292"
@@ -39,8 +39,8 @@ services:
   worker:
     <<: *ruby-service
     command: ["bundle", "exec", "sidekiq", "-r", "./config/boot.rb"]
-    # The worker loads the models, so it also waits until the app has migrated
-    # the schema. This list replaces the shared one, so it repeats db and redis.
+    # El worker carga los modelos, así que también espera a que la app haya migrado
+    # el esquema. Esta lista reemplaza la compartida, por eso repite db y redis.
     depends_on:
       db:
         condition: service_healthy
@@ -56,11 +56,11 @@ services:
       POSTGRES_PASSWORD: fudo
       POSTGRES_DB: fudo-challenge
     ports:
-      # 5433 on the host so it does not clash with a local PostgreSQL on 5432.
+      # 5433 en el host para no chocar con un PostgreSQL local en el 5432.
       - "5433:5432"
     volumes:
       - db-data:/var/lib/postgresql
-      # Creates the test database the first time the volume is initialized.
+      # Crea la base de test la primera vez que se inicializa el volumen.
       - ./db/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "fudo", "-d", "fudo-challenge"]
@@ -70,7 +70,7 @@ services:
 
   redis:
     image: redis:8.8.3-alpine
-    # appendonly persists every write to disk, so scheduled jobs survive a restart.
+    # appendonly guarda cada escritura en disco, así los jobs programados sobreviven a un reinicio.
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redis-data:/data

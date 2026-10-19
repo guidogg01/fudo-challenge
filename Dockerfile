@@ -1,14 +1,14 @@
 FROM ruby:4.0.7-slim
 
-# Native extensions (puma) are compiled during bundle install.
+# Las extensiones nativas (puma) se compilan durante el bundle install.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copying only the Gemfiles first lets Docker cache the installed gems
-# until the dependencies change, instead of reinstalling on every code edit.
+# Copiar primero solo los Gemfiles permite que Docker cachee las gemas instaladas
+# hasta que cambien las dependencias, en vez de reinstalarlas en cada cambio de código.
 COPY Gemfile Gemfile.lock .ruby-version ./
 RUN bundle install
 

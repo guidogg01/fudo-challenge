@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Loaded by Puma, Sidekiq, Rake and the tests, so all of them run the same code.
+# Lo cargan Puma, Sidekiq, Rake y los tests, así todos corren el mismo código.
 
 require "bundler/setup"
 require "bcrypt"
@@ -14,8 +14,8 @@ require_relative "logger"
 
 Sequel::Model.plugin :timestamps, update_on_create: true
 
-# Models read their table's columns when they are defined, so the schema
-# must already be migrated at this point.
+# Los modelos leen las columnas de su tabla al definirse, así que el esquema
+# ya tiene que estar migrado en este punto.
 require_relative "../app/models/user"
 require_relative "../app/models/auth_token"
 require_relative "../app/models/product"

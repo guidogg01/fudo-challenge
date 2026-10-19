@@ -47,6 +47,6 @@ jobs:
       - name: RuboCop
         run: bundle exec rubocop
 
-      # spec/spec_helper.rb migrates the test database before the suite runs.
+      # spec/spec_helper.rb migra la base de test antes de correr la suite.
       - name: RSpec
         run: bundle exec rspec

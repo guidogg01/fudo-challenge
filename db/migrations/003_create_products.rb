@@ -12,10 +12,10 @@ Sequel.migration do
       column :created_at, :timestamptz, null: false, default: Sequel::CURRENT_TIMESTAMP
       column :updated_at, :timestamptz, null: false, default: Sequel::CURRENT_TIMESTAMP
 
-      # The real guarantee of one name per user, ignoring case (decision 16).
+      # La garantía real de un nombre por usuario, sin distinguir mayúsculas (decisión 16).
       index [:user_id, Sequel.function(:lower, :name)], unique: true, name: :products_user_id_lower_name_index
 
-      # Second line of defense behind the app's validations (decision 19).
+      # Segunda línea de defensa detrás de las validaciones de la app (decisión 19).
       constraint(:products_name_length_check, Sequel.lit("char_length(name) BETWEEN 1 AND 100"))
       constraint(:products_description_length_check,
                  Sequel.lit("description IS NULL OR char_length(description) <= 500"))

@@ -4,7 +4,7 @@ require "securerandom"
 
 class RequestId
   ENV_KEY = "app.request_id"
-  # Limits what a client can put in our logs to a short, plain identifier.
+  # Limita lo que un cliente puede meter en nuestros logs a un identificador corto y simple.
   VALID_ID = /\A[\w.:-]{1,128}\z/
 
   def initialize(app)

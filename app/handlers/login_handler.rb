@@ -19,14 +19,14 @@ class LoginHandler
     validate!(body)
 
     result = Login.call(body["username"], body["password"])
-    # Login is a public route, so the router sets no user; this one is only
-    # for the request log.
+    # Login es una ruta pública, así que el router no setea usuario; este es solo
+    # para el log del request.
     request.current_user = result.user
 
     JsonResponse.build(
       200,
       { data: { token: result.token, token_type: "Bearer", expires_at: result.expires_at.utc.iso8601 } },
-      # The token must not be kept by browsers or proxies.
+      # Ni el navegador ni un proxy tienen que guardar el token.
       { "cache-control" => "no-store" }
     )
   end

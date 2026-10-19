@@ -3,7 +3,7 @@
 require "stringio"
 require "zlib"
 
-# Routes made up for the test, running through the real middleware pipeline.
+# Rutas inventadas para el test, que pasan por el pipeline de middlewares real.
 RSpec.describe "HTTP infrastructure", type: :request do
   let(:log_output) { StringIO.new }
   let(:echo_handler) do

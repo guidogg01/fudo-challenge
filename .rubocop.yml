@@ -8,24 +8,24 @@ AllCops:
   Exclude:
     - "vendor/**/*"
 
-# Classes are documented with a short "why" comment only where it helps;
-# a mandatory comment on every class adds noise to small, obvious ones.
+# Las clases llevan un comentario de "por qué" solo donde suma;
+# exigirlo en cada clase agrega ruido en las chicas y obvias.
 Style/Documentation:
   Enabled: false
 
 Style/StringLiterals:
   EnforcedStyle: double_quotes
 
-# A request spec checks one response: its status, headers and body.
-# Splitting that into one example per line would repeat the request each time.
+# Un spec de request verifica una respuesta: status, headers y body.
+# Separarlo en un ejemplo por línea repetiría el request cada vez.
 RSpec/MultipleExpectations:
   Max: 5
 
-# Specs under spec/db test the schema and the seeds, which are not classes.
+# Los specs de spec/db prueban el esquema y el seed, que no son clases.
 RSpec/DescribeClass:
   Exclude:
     - "spec/db/**/*"
 
-# A multi-line expected hash is one assertion, not several lines of logic.
+# Un hash esperado de varias líneas es una sola aserción, no varias líneas de lógica.
 RSpec/ExampleLength:
   CountAsOne: ["array", "hash", "heredoc", "method_call"]

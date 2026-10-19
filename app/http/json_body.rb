@@ -2,25 +2,25 @@
 
 module JsonBody
   def self.parse(request)
-    # media_type ignores parameters, so "application/json; charset=utf-8" is accepted.
+    # media_type ignora los parámetros, así que acepta "application/json; charset=utf-8".
     raise ApiError::UnsupportedMediaType unless request.media_type == "application/json"
 
     parsed = JSON.parse(read_utf8(request))
     raise ApiError::InvalidJson, "El cuerpo del request debe ser un objeto JSON." unless parsed.is_a?(Hash)
-    # "\u0000" is valid JSON, but PostgreSQL text cannot store it and the
-    # query would fail as a 500.
+    # "\u0000" es JSON válido, pero el text de PostgreSQL no lo puede guardar y la
+    # consulta fallaría con un 500.
     raise ApiError::InvalidJson, "El cuerpo del request no puede contener el carácter nulo." if contains_nul?(parsed)
 
     parsed
-  # JSON::NestingError (too deeply nested) is a ParserError too.
+  # JSON::NestingError (demasiado anidado) también es un ParserError.
   rescue JSON::ParserError
     raise ApiError::InvalidJson
   end
 
-  # JSON must be UTF-8 (RFC 8259). JSON.parse accepts invalid bytes, which
-  # would then fail deep inside the app as a 500.
+  # JSON tiene que ser UTF-8 (RFC 8259). JSON.parse acepta bytes inválidos, que
+  # después fallarían en algún lugar de la app con un 500.
   def self.read_utf8(request)
-    # Rack 3 allows requests without an input stream at all.
+    # Rack 3 permite requests sin ningún stream de entrada.
     raw = String.new(request.body&.read.to_s, encoding: Encoding::UTF_8)
     raise ApiError::InvalidJson unless raw.valid_encoding?
 

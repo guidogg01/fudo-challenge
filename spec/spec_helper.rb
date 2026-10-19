@@ -1,13 +1,13 @@
 # frozen_string_literal: true
 
 ENV["RACK_ENV"] = "test"
-# The lowest cost bcrypt accepts: hashing stays fast in tests.
+# El costo más bajo que acepta bcrypt: el hasheo es rápido en los tests.
 ENV["BCRYPT_COST"] = "4"
-# Keeps request logs out of the test output. Specs that check logs pass their own logger.
+# Saca los logs de request de la salida de los tests. Los specs que miran logs pasan su propio logger.
 ENV["LOG_LEVEL"] = "fatal"
 
-# The models need the tables, so the test database is migrated before the
-# application is loaded.
+# Los modelos necesitan las tablas, así que la base de test se migra antes de
+# cargar la app.
 require_relative "../config/database"
 Sequel.extension :migration
 Sequel::Migrator.run(DB, File.expand_path("../db/migrations", __dir__))
@@ -31,8 +31,8 @@ end
 RSpec.configure do |config|
   config.include RackAppHelper, type: :request
 
-  # Each example runs in a transaction that is always rolled back.
-  # auto_savepoint lets an example go on after a failed insert.
+  # Cada ejemplo corre en una transacción que siempre se deshace.
+  # auto_savepoint permite que un ejemplo siga después de un insert fallido.
   config.around do |example|
     DB.transaction(rollback: :always, auto_savepoint: true) { example.run }
   end

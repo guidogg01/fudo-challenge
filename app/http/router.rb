@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Hand-written on purpose: the challenge forbids web frameworks (decision 1).
+# Escrito a mano a propósito: el enunciado prohíbe los frameworks web (decisión 1).
 class Router
   def initialize(routes)
     @routes = routes
@@ -32,7 +32,7 @@ class Router
     match
   end
 
-  # The user always comes from the token, never from the body or the URL.
+  # El usuario sale siempre del token, nunca del body ni de la URL.
   def authenticate(request)
     auth_token = TokenAuthentication.call(request.get_header("HTTP_AUTHORIZATION"))
     request.auth_token = auth_token

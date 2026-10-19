@@ -14,7 +14,7 @@ class HealthHandler
 
   private
 
-  # A failing dependency is reported, never raised; the cause goes only to the log.
+  # Una dependencia caída se informa, nunca se propaga; la causa va solo al log.
   def check(dependency)
     yield
     "ok"

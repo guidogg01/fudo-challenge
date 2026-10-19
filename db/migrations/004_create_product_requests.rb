@@ -3,7 +3,7 @@
 Sequel.migration do
   change do
     create_table(:product_requests) do
-      # A random UUID, so request ids cannot be guessed (decision 22).
+      # Un UUID al azar, para que los ids de las solicitudes no se puedan adivinar (decisión 22).
       uuid :id, primary_key: true, default: Sequel.function(:gen_random_uuid)
       foreign_key :user_id, :users, type: :Bignum, null: false, index: true
       String :status, text: true, null: false, default: "pending"
@@ -15,7 +15,7 @@ Sequel.migration do
       column :created_at, :timestamptz, null: false, default: Sequel::CURRENT_TIMESTAMP
       column :updated_at, :timestamptz, null: false, default: Sequel::CURRENT_TIMESTAMP
 
-      # Finds old pending requests when the worker starts (decision 30).
+      # Encuentra las solicitudes pending viejas cuando arranca el worker (decisión 30).
       index %i[status created_at]
 
       constraint(:product_requests_status_check,

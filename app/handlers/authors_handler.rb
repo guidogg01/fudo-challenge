@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Rack::Files already handles Last-Modified and If-Modified-Since (304).
+# Rack::Files ya maneja Last-Modified e If-Modified-Since (304).
 class AuthorsHandler
   PUBLIC_DIR = File.expand_path("../../public", __dir__)
   CACHE_CONTROL = "public, max-age=86400"
@@ -11,8 +11,8 @@ class AuthorsHandler
 
   def call(request)
     status, headers, body = @files.call(request.env)
-    # Set here and not through Rack::Files' headers option, which only
-    # applies to 200: a 304 must repeat the cache policy too (RFC 9110, 15.4.5).
+    # Se setea acá y no con la opción de headers de Rack::Files, que solo se
+    # aplica al 200: un 304 también tiene que repetir la política de caché (RFC 9110, 15.4.5).
     headers["cache-control"] = CACHE_CONTROL
     [status, headers, body]
   end

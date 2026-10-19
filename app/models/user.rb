@@ -11,7 +11,7 @@ class User < Sequel::Model
     BCrypt::Password.create(password, cost: BCRYPT_COST).to_s
   end
 
-  # Case-insensitive, like the unique index on lower(username) (decision 16).
+  # Sin distinguir mayúsculas, como el índice único sobre lower(username) (decisión 16).
   def self.find_by_username(username)
     where(Sequel.function(:lower, :username) => Sequel.function(:lower, username)).first
   end

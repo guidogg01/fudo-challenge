@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Values live in the env so that middlewares such as RequestLogger can read them too.
+# Los valores viven en el env para que los middlewares, como RequestLogger, también los lean.
 class ApiRequest < Rack::Request
   PATH_PARAMS_KEY = "app.path_params"
   JSON_BODY_KEY = "app.json_body"
