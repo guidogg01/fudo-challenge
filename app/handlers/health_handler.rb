@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
 class HealthHandler
-  def call(_request)
+  def call(request)
     checks = {
-      database: check(:database) { DB.get(1) },
-      redis: check(:redis) { Sidekiq.redis { |connection| connection.call("PING") } }
+      database: check(:database, request) { DB.get(1) },
+      redis: check(:redis, request) { Sidekiq.redis { |connection| connection.call("PING") } }
     }
     healthy = checks.values.all?("ok")
 
@@ -15,11 +15,12 @@ class HealthHandler
   private
 
   # Una dependencia caída se informa, nunca se propaga; la causa va solo al log.
-  def check(dependency)
+  def check(dependency, request)
     yield
     "ok"
   rescue StandardError => e
-    LOGGER.warn(event: "health_check_failed", dependency: dependency, error_class: e.class.name)
+    LOGGER.warn(event: "health_check_failed", dependency: dependency, error_class: e.class.name,
+                request_id: request.request_id)
     "error"
   end
 end

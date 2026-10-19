@@ -19,7 +19,8 @@ class RequestLogger
   private
 
   def log(env, status, duration_ms)
-    @logger.info(
+    @logger.add(
+      severity_for(status),
       event: "request",
       method: env["REQUEST_METHOD"],
       path: env["PATH_INFO"],
@@ -28,5 +29,13 @@ class RequestLogger
       request_id: env[RequestId::ENV_KEY],
       user_id: env[ApiRequest::CURRENT_USER_KEY]&.id
     )
+  end
+
+  # Así se pueden filtrar los problemas por nivel: 5xx son fallas nuestras, 4xx del cliente.
+  def severity_for(status)
+    if status >= 500 then Logger::ERROR
+    elsif status >= 400 then Logger::WARN
+    else Logger::INFO
+    end
   end
 end

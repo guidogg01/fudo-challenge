@@ -9,6 +9,17 @@ RSpec.describe "GET /health", type: :request do
     expect(json_body).to eq("status" => "ok", "checks" => { "database" => "ok", "redis" => "ok" })
   end
 
+  it "logs which dependency failed, with the request id" do
+    allow(DB).to receive(:get).and_raise(Sequel::DatabaseConnectionError)
+    stub_const("LOGGER", test_logger)
+
+    get "/health", {}, "HTTP_X_REQUEST_ID" => "health-1"
+
+    expect(log_events.first).to include(
+      "level" => "warn", "event" => "health_check_failed", "dependency" => "database", "request_id" => "health-1"
+    )
+  end
+
   it "responds 503 and names the database when PostgreSQL fails" do
     allow(DB).to receive(:get).and_raise(Sequel::DatabaseConnectionError)
 

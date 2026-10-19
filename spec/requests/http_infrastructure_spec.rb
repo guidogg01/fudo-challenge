@@ -173,10 +173,18 @@ RSpec.describe "HTTP infrastructure", type: :request do
 
       expect(log_events.size).to eq(1)
       expect(log_events.first).to include(
-        "level" => "info", "event" => "request", "method" => "GET", "path" => "/nowhere",
+        "level" => "warn", "event" => "request", "method" => "GET", "path" => "/nowhere",
         "status" => 404, "request_id" => "client-id-3", "user_id" => nil
       )
       expect(log_events.first["duration_ms"]).to be_a(Numeric)
+    end
+
+    it "logs successful requests as info and server errors as error" do
+      get "/things/1"
+      get "/boom"
+
+      levels = log_events.select { |line| line["event"] == "request" }.map { |line| [line["status"], line["level"]] }
+      expect(levels).to eq([[200, "info"], [500, "error"]])
     end
   end
 
