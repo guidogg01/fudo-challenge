@@ -333,7 +333,7 @@ Registro de las decisiones del proyecto, en formato ADR liviano: **Contexto → 
 
 **Alternativas consideradas.** Solo "estoy vivo" (no detecta que la app no puede trabajar). Separar *liveness* y *readiness* (lo correcto en Kubernetes, pero de más para este challenge: queda como próximo paso).
 
-**Consecuencias.** Si la base se cae, `/health` da 503. En un orquestador habría que cuidar que eso no reinicie la app en loop: por eso, en producción, se separaría en dos endpoints.
+**Consecuencias.** Si la base se cae, `/health` da 503. En un orquestador habría que cuidar que eso no reinicie la app en loop: por eso, en producción, se separaría en dos endpoints. Para que una base que deja de responder no cuelgue los requests, la conexión usa `connect_timeout` de 2 segundos para las conexiones nuevas y `tcp_user_timeout` de 2 segundos para las abiertas (verificado cortando la red de la base: el primer request pasó de colgarse más de 90 segundos a responder en 2,4). La resolución DNS no tiene timeout propio: si el nombre del host deja de existir, como pasa en Docker Compose al bajar el contenedor, cada intento puede tardar varios segundos más.
 
 ## 28. Gzip con `Rack::Deflater`
 
