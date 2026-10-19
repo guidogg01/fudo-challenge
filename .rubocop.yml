@@ -21,10 +21,11 @@ Style/StringLiterals:
 RSpec/MultipleExpectations:
   Max: 5
 
-# Los specs de spec/db prueban el esquema y el seed, que no son clases.
+# Los specs de spec/db y el de dependencias prueban el esquema, el seed y el Gemfile.lock, que no son clases.
 RSpec/DescribeClass:
   Exclude:
     - "spec/db/**/*"
+    - "spec/dependencies_spec.rb"
 
 # Un hash esperado de varias líneas es una sola aserción, no varias líneas de lógica.
 # Los ejemplos de punta a punta (request, después job, después consulta) necesitan unas líneas más.
