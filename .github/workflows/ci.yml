@@ -1,7 +1,9 @@
 name: CI
 
 on:
+  # Solo main en push: en un PR el evento pull_request ya lo corre, y si no correría dos veces.
   push:
+    branches: [main]
   pull_request:
 
 jobs:

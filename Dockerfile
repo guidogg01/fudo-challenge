@@ -1,6 +1,6 @@
 FROM ruby:4.0.7-slim
 
-# Las extensiones nativas (puma) se compilan durante el bundle install.
+# Las extensiones nativas (puma, bcrypt) se compilan durante el bundle install.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends build-essential \
     && rm -rf /var/lib/apt/lists/*

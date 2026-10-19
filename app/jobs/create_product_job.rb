@@ -75,8 +75,8 @@ class CreateProductJob
       LOGGER.info(event: "product_request_skipped", product_request_id: product_request_id,
                   status: product_request.status, request_id: request_id)
     else
-      # No debería pasar: la solicitud se guarda en la misma transacción que
-      # encola el job. Es un warning porque nada lo va a reintentar.
+      # Solo pasa si el commit que guarda la solicitud falla después de encolar el job.
+      # Es un warning porque nada lo va a reintentar.
       LOGGER.warn(event: "product_request_not_found", product_request_id: product_request_id, request_id: request_id)
     end
   end
